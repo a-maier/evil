@@ -1,20 +1,21 @@
+mod app;
 mod auto_decompress;
+mod config;
 mod event;
+mod image;
 mod import;
 mod opt;
 mod particle;
-mod plot;
+mod plotter;
 
-use std::fs::File;
-use std::io::Write;
-
+use crate::app::App;
+use crate::config::Config;
 use crate::import::import;
 use crate::opt::Opt;
-use crate::plot::plot;
 
 use anyhow::Result;
 use env_logger::Env;
-use log::{info, debug};
+use log::{debug, error};
 use structopt::StructOpt;
 
 fn main() -> Result<()> {
@@ -29,9 +30,16 @@ fn main() -> Result<()> {
         import(file.as_ref(), &mut events)?;
     }
 
-    for (n, event) in events.iter().enumerate() {
-        info!("Plotting event number {}", n);
-        plot(event, &format!("event_{}.svg", n))?;
-    }
+    let mut native_options = eframe::NativeOptions::default();
+    match confy::load::<Config>("evil") {
+        Ok(cfg) => native_options.initial_window_size = cfg.window_size.map(
+            |(x, y)| egui::Vec2{x, y}
+        ),
+        Err(err) => error!("{}", err)
+    };
+
+    let app = App::new(events);
+    eframe::run_native(Box::new(app), native_options);
+
     Ok(())
 }

@@ -19,14 +19,6 @@ impl Particle {
         particle_name(self.id)
     }
 }
-  // "d", "u", "s", "c",
-  // "b", "t", "", "",
-  // "", "", "e", "\nu_e",
-  // "\mu", "\nu_\mu", "\tau", "\nu_\tau",
-  // // ???
-  // "", "", "", "",
-  // // bosons
-  // "g", "\gamma", "Z", "W", "h"
 
 pub fn particle_name(id: i32) -> &'static str {
     match id {
