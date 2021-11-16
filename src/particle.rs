@@ -18,6 +18,10 @@ impl Particle {
     pub fn name(&self) -> &'static str {
         particle_name(self.id)
     }
+
+    pub fn is_parton(&self) -> bool {
+        self.id == 21 || self.id.abs() <= 5
+    }
 }
 
 pub fn particle_name(id: i32) -> &'static str {

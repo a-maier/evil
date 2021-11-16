@@ -4,6 +4,7 @@ mod config;
 mod event;
 mod image;
 mod import;
+mod jets;
 mod opt;
 mod particle;
 mod plotter;
@@ -33,13 +34,11 @@ fn main() -> Result<()> {
     let mut native_options = eframe::NativeOptions::default();
     match confy::load::<Config>("evil") {
         Ok(cfg) => native_options.initial_window_size = cfg.window_size.map(
-            |(x, y)| egui::Vec2{x, y}
+            |(x, y)| eframe::egui::Vec2{x, y}
         ),
         Err(err) => error!("{}", err)
     };
 
     let app = App::new(events);
-    eframe::run_native(Box::new(app), native_options);
-
-    Ok(())
+    eframe::run_native(Box::new(app), native_options)
 }

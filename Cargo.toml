@@ -15,7 +15,9 @@ repository = "https://github.com/a-maier/evil"
 serde = { version = "1", features = ["derive"] }
 anyhow = "1.0"
 bzip2 = "0.4"
-eframe = "0.14"
+# TODO: enable
+#eframe = { version = "0.15", features = ["persistence"] }
+eframe = "0.15"
 env_logger = "0.9"
 flate2 = "1.0"
 hepmc2 = "0.5"
@@ -29,6 +31,9 @@ structopt = "0.3"
 zstd = "0.9"
 usvg = "0.19"
 tiny-skia = "0.6"
-egui = "0.14"
+egui = { version = "0.15", features = ["persistence"] }
+epi = { version = "0.15", features = ["persistence"] }
 resvg = "0.19"
 confy = "0.4"
+jetty = "0.2.0"
+num-traits = "0.2.14"

@@ -8,7 +8,9 @@ use std::f64::consts::PI;
 use std::ops::Range;
 
 use anyhow::Result;
+use jetty::PseudoJet;
 use lazy_static::lazy_static;
+use num_traits::float::Float;
 use plotters::prelude::*;
 use plotters::coord::Shift;
 use plotters::style::text_anchor::{HPos, Pos, VPos};
@@ -90,8 +92,9 @@ lazy_static!(
     };
 );
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
 pub struct Plotter {
+    pub r_jet: f64,
 }
 
 impl Plotter {
@@ -99,27 +102,41 @@ impl Plotter {
         Self::default()
     }
 
-    pub fn plot_y_phi(&self, event: &Event) -> Result<String> {
+    pub fn plot_y_phi(
+        &self,
+        event: &Event,
+        jets: &[PseudoJet]
+    ) -> Result<String> {
         let mut plot = String::new();
-        self.plot_y_phi_to(event, &mut plot)?;
+        self.plot_y_phi_to(event, jets, &mut plot)?;
         Ok(plot)
     }
 
-    pub fn plot_y_logpt(&self, event: &Event, logpt_range: Range<f64>) -> Result<String> {
+    pub fn plot_y_logpt(
+        &self,
+        event: &Event,
+        jets: &[PseudoJet],
+        logpt_range: Range<f64>
+    ) -> Result<String> {
         let mut plot = String::new();
-        self.plot_y_logpt_to(event, logpt_range, &mut plot)?;
+        self.plot_y_logpt_to(event, jets, logpt_range, &mut plot)?;
         Ok(plot)
     }
 
-    pub fn plot_y_phi_to(&self, event: &Event, result: &mut String) -> Result<()> {
+    pub fn plot_y_phi_to(
+        &self,
+        event: &Event,
+        jets: &[PseudoJet],
+        result: &mut String
+    ) -> Result<()> {
 
         let root = SVGBackend::with_string(result, (1024, 768)).into_drawing_area();
         root.fill(&WHITE)?;
-        let root = root.margin(10, 10, 10, 10);
+        //let root = root.margin(10, 10, 10, 10);
         let mut chart = ChartBuilder::on(&root)
             .margin(5)
-            .set_all_label_area_size(5)
-            .set_label_area_size(LabelAreaPosition::Left, 80)
+            .set_all_label_area_size(10)
+            .set_label_area_size(LabelAreaPosition::Left, 100)
             .set_label_area_size(LabelAreaPosition::Bottom, 80)
             .build_cartesian_2d(Y_AXIS_MIN..Y_AXIS_MAX, PHI_AXIS_MIN..PHI_AXIS_MAX)?;
 
@@ -132,6 +149,9 @@ impl Plotter {
         self.dress_rap_axis(&root, &mut chart);
         self.dress_phi_axis(&root, &mut chart);
 
+        for jet in jets {
+            self.draw_y_phi_jet(&root, &mut chart, &jet);
+        }
         let mut legend_ids = BTreeSet::new();
         for particle in &event.out {
             self.draw_y_phi(&root, &chart, &particle);
@@ -160,12 +180,13 @@ impl Plotter {
     pub fn plot_y_logpt_to(
         &self,
         event: &Event,
+        jets: &[PseudoJet],
         logpt_range: Range<f64>,
         result: &mut String
     ) -> Result<()> {
 
         let root = SVGBackend::with_string(result, (1024, 768)).into_drawing_area();
-        let root = root.margin(10, 10, 10, 10);
+        // let root = root.margin(10, 10, 10, 10);
         let logpt_start = logpt_range.start - 0.05 * logpt_range.start.abs();
         let logpt_end = logpt_range.end + 0.05 * logpt_range.end.abs();
         let mut chart = ChartBuilder::on(&root)
@@ -185,6 +206,9 @@ impl Plotter {
         let logpt_range = logpt_start.ceil() as i64 .. logpt_end.floor() as i64;
         self.dress_logpt_axis(&root, &mut chart, logpt_range.clone());
 
+        for jet in jets {
+            self.draw_y_logpt_jet(&root, &mut chart, &jet);
+        }
         let mut legend_ids = BTreeSet::new();
         for particle in &event.out {
             self.draw_y_logpt(&root, &chart, &particle);
@@ -370,14 +394,11 @@ impl Plotter {
         X: Ranged<ValueType = f64>,
         Y: Ranged<ValueType = f64>,
     {
-        // TODO: vertical alignment is broken?
-        const V_CORR: f64 = 0.1;
-
         self.draw_text(
             &root,
             &chart,
             text,
-            (Y_AXIS_MIN - TICK_LABEL_OFFSET, pos + V_CORR),
+            (Y_AXIS_MIN - TICK_LABEL_OFFSET, pos),
             Pos{ h_pos: HPos::Right, v_pos: VPos::Center }
         );
     }
@@ -394,15 +415,13 @@ impl Plotter {
         X: Ranged<ValueType = f64>,
         Y: Ranged<ValueType = f64>,
     {
-        // TODO: alignment is broken?
         const H_CORR: f64 = 0.1;
-        const V_CORR: f64 = 0.2;
         let ymin = chart.y_range().start;
         self.draw_text(
             &root,
             &chart,
             text,
-            (pos - H_CORR, ymin - TICK_LABEL_OFFSET + V_CORR),
+            (pos, ymin - TICK_LABEL_OFFSET + H_CORR),
             Pos{ h_pos: HPos::Center, v_pos: VPos::Top }
         );
     }
@@ -447,7 +466,7 @@ impl Plotter {
         self.phi_tick_label(&root, &chart, "0", 0.);
         self.phi_tick_label(&root, &chart, "-π/2", -PI / 2.);
         self.phi_tick_label(&root, &chart, "-π", -PI);
-        self.draw_text(&root, &chart, "φ", (Y_AXIS_MIN - Y_AXIS_LABEL_OFFSET, 0.1), Pos{ h_pos: HPos::Right, v_pos: VPos::Center });
+        self.draw_text(&root, &chart, "φ", (Y_AXIS_MIN - Y_AXIS_LABEL_OFFSET, 0.0), Pos{ h_pos: HPos::Right, v_pos: VPos::Center });
     }
 
     fn dress_logpt_axis<DB, X, Y>(
@@ -465,14 +484,12 @@ impl Plotter {
         self.draw_logpt_ticks(&mut chart, range.clone());
         for logpt in range {
             let logpt = logpt as f64;
-            // TODO: vertical alignment is broken?
-            const V_CORR: f64 = 0.1;
             self.draw_text(
                 &root,
                 &chart,
                 // TODO: proper superscript
                 format!("10^{}", logpt),
-                (Y_AXIS_MIN - TICK_LABEL_OFFSET, logpt + V_CORR),
+                (Y_AXIS_MIN - TICK_LABEL_OFFSET, logpt),
                 Pos{ h_pos: HPos::Right, v_pos: VPos::Center }
             );
         }
@@ -498,7 +515,7 @@ impl Plotter {
         self.rap_tick_label(&root, &chart, "-∞", Y_MIN - 0.1);
         self.rap_tick_label(&root, &chart, "∞", Y_MAX);
         let ymin = chart.y_range().start;
-        self.draw_text(&root, &chart, "y", (-0.1, ymin - X_AXIS_LABEL_OFFSET), Pos{ h_pos: HPos::Center, v_pos: VPos::Top });
+        self.draw_text(&root, &chart, "y", (0., ymin - X_AXIS_LABEL_OFFSET), Pos{ h_pos: HPos::Center, v_pos: VPos::Top });
     }
 
     fn draw_particle_at<DB, X, Y>(
@@ -566,6 +583,69 @@ impl Plotter {
         self.draw_particle_at(&root, &chart, particle.id, centre);
     }
 
+    fn draw_y_phi_jet<DB, X, Y>(
+        &self,
+        _root: & DrawingArea<DB, Shift>,
+        chart: & mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
+        jet: &PseudoJet
+    )
+    where
+        DB: DrawingBackend,
+        X: Ranged<ValueType = f64>,
+        Y: Ranged<ValueType = f64>,
+    {
+        let mut phi: f64 = jet.phi().into();
+        if phi > PI {
+            phi -= 2.*PI;
+        }
+        debug!("Drawing jet with radius {} at (y, φ) = ({}, {})", self.r_jet, jet.rap(), phi);
+        let centre = (y_to_coord(jet.rap().into()), phi);
+        chart.draw_series(
+            AreaSeries::new(
+                (0..101).map(
+                    |x| {
+                        let x = x as f64;
+                        let phi = x*2.*PI / 100.;
+                        (y_to_coord(centre.0 + self.r_jet*phi.cos()), centre.1 + self.r_jet*phi.sin())
+                    }
+                ),
+                0.,
+                ShapeStyle::from(GREY.mix(0.3)).filled(),
+            )
+        ).unwrap();
+        if centre.1 - self.r_jet < - PI {
+            chart.draw_series(
+                AreaSeries::new(
+                    (0..101).map(
+                        |x| {
+                            let x = x as f64;
+                            let phi = x*2.*PI / 100.;
+                            (y_to_coord(centre.0 + self.r_jet*phi.cos()), centre.1 + self.r_jet*phi.sin() + 2.*PI)
+                        }
+                    ),
+                    0.,
+                    ShapeStyle::from(GREY.mix(0.3)).filled(),
+                )
+            ).unwrap();
+        }
+        if centre.1 + self.r_jet > PI {
+            chart.draw_series(
+                AreaSeries::new(
+                    (0..101).map(
+                        |x| {
+                            let x = x as f64;
+                            let phi = x*2.*PI / 100.;
+                            (y_to_coord(centre.0 + self.r_jet*phi.cos()), centre.1 + self.r_jet*phi.sin() - 2.*PI)
+                        }
+                    ),
+                    0.,
+                    ShapeStyle::from(GREY.mix(0.3)).filled(),
+                )
+            ).unwrap();
+        }
+
+    }
+
     fn draw_y_logpt<DB, X, Y>(
         &self,
         root: & DrawingArea<DB, Shift>,
@@ -580,6 +660,33 @@ impl Plotter {
         debug!("Drawing particle {} at (y, log(pt)) = ({}, {})", particle.id, particle.y, particle.pt.log10());
         let centre = (y_to_coord(particle.y), particle.pt.log10());
         self.draw_particle_at(&root, &chart, particle.id, centre);
+    }
+
+    fn draw_y_logpt_jet<DB, X, Y>(
+        &self,
+        _root: & DrawingArea<DB, Shift>,
+        chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
+        jet: &PseudoJet
+    )
+    where
+        DB: DrawingBackend,
+        X: Ranged<ValueType = f64>,
+        Y: Ranged<ValueType = f64>,
+    {
+        debug!("Drawing jet at (y, log(pt)) = ({}, {})", jet.rap(), jet.pt2().log10()/2.);
+        let centre = (y_to_coord(jet.rap().into()), (jet.pt2().log10()/2.).into());
+        chart.draw_series(
+            AreaSeries::new(
+                [
+                    (y_to_coord(centre.0 + self.r_jet), centre.1),
+                    (y_to_coord(centre.0 - self.r_jet), centre.1),
+                    (y_to_coord(centre.0 - self.r_jet), -100.), // TODO: min pt
+                    (y_to_coord(centre.0 + self.r_jet), -100.)
+                ],
+                0.,
+                ShapeStyle::from(GREY.mix(0.3)).filled(),
+            )
+        ).unwrap();
     }
 }
 

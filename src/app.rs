@@ -5,10 +5,30 @@ use crate::image::Image;
 use crate::event::Event;
 use crate::config::Config;
 use crate::plotter::Plotter;
+use crate::jets::{JetAlgorithm, JetDefinition};
 
-use eframe::{egui, epi};
+use jetty::PseudoJet;
 use log::{error, debug, trace};
 use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Clone, Deserialize, Serialize, PartialEq, PartialOrd)]
+pub struct ClusteringSettings {
+    enable: bool,
+    jet_def: JetDefinition
+}
+
+impl Default for ClusteringSettings {
+    fn default() -> Self {
+        Self {
+            enable: false,
+            jet_def: JetDefinition{
+                algorithm: JetAlgorithm::AntiKt,
+                radius: 0.4,
+                min_pt: 0.
+            }
+        }
+    }
+}
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(Default, Deserialize, Serialize)]
@@ -26,13 +46,13 @@ pub struct App {
     y_phi: Image,
 
     #[serde(skip)]
-    y_phi_id: egui::TextureId,
+    y_phi_id: eframe::egui::TextureId,
 
     #[serde(skip)]
     y_logpt: Image,
 
     #[serde(skip)]
-    y_logpt_id: egui::TextureId,
+    y_logpt_id: eframe::egui::TextureId,
 
     #[serde(skip)]
     first_draw: bool,
@@ -41,12 +61,17 @@ pub struct App {
     ev_idx_str: String,
 
     #[serde(skip)]
-    ev_idx_str_col: Option<egui::Color32>,
+    ev_idx_str_col: Option<eframe::egui::Color32>,
 
     #[serde(skip)]
     lpt_range: Range<f64>,
 
+    clustering: ClusteringSettings,
+
     window_size: (f32, f32),
+
+    #[serde(skip)]
+    clustering_settings_open: bool,
 }
 
 impl App {
@@ -73,13 +98,14 @@ impl App {
 
         let y_phi;
         let y_logpt;
+        let jets = Vec::new();
         if let Some(event) = events.first() {
-            y_phi = plotter.plot_y_phi(event);
-            y_logpt = plotter.plot_y_logpt(event, lpt_range.clone());
+            y_phi = plotter.plot_y_phi(event, &jets);
+            y_logpt = plotter.plot_y_logpt(event, &jets, lpt_range.clone());
         } else {
             let ev = Event::default();
-            y_phi = plotter.plot_y_phi(&ev);
-            y_logpt = plotter.plot_y_logpt(&ev, lpt_range.clone());
+            y_phi = plotter.plot_y_phi(&ev, &jets);
+            y_logpt = plotter.plot_y_logpt(&ev, &jets, lpt_range.clone());
         };
         App {
             plotter,
@@ -93,28 +119,41 @@ impl App {
             ev_idx_str: "1".to_string(),
             ev_idx_str_col: None,
             lpt_range,
-            window_size: Default::default()
+            clustering: Default::default(),
+            window_size: Default::default(),
+            clustering_settings_open: false,
         }
     }
 
-    fn update_ev(&mut self, ev_idx: usize, allocator: &mut dyn epi::TextureAllocator) {
+    fn cluster_jets(&self, event: &Event) -> Vec<PseudoJet> {
+        if self.clustering.enable {
+            self.clustering.jet_def.cluster_event(event)
+        } else {
+            vec![]
+        }
+    }
+
+    fn update_ev(&mut self, ev_idx: usize, allocator: &mut dyn eframe::epi::TextureAllocator) {
         self.cur_ev_idx = ev_idx;
         self.ev_idx_str = format!("{}", ev_idx + 1);
         self.update_img(allocator);
     }
 
-    fn update_img(&mut self, allocator: &mut dyn epi::TextureAllocator) {
+    fn update_img(&mut self, allocator: &mut dyn eframe::epi::TextureAllocator) {
         debug_assert!(self.cur_ev_idx < self.events.len());
         debug!("Update image to event {}/{}", self.cur_ev_idx, self.events.len());
-        let svg = self.plotter.plot_y_phi(&self.events[self.cur_ev_idx]).unwrap();
+        let event = &self.events[self.cur_ev_idx];
+        let jets = self.cluster_jets(event);
+        let svg = self.plotter.plot_y_phi(event, &jets).unwrap();
         self.y_phi = Image::new(svg, (1280, 960));
         allocator.free(self.y_phi_id);
         self.y_phi_id = allocator
             .alloc_srgba_premultiplied(self.y_phi.size(), &self.y_phi.pixels());
 
         let svg = self.plotter.plot_y_logpt(
-            &self.events[self.cur_ev_idx],
-            self.lpt_range.clone()
+            event,
+            &jets,
+            self.lpt_range.clone(),
         ).unwrap();
         self.y_logpt = Image::new(svg, (1280, 960));
         allocator.free(self.y_logpt_id);
@@ -122,7 +161,7 @@ impl App {
             .alloc_srgba_premultiplied(self.y_logpt.size(), &self.y_logpt.pixels());
     }
 
-    fn prev_img(&mut self, frame: &mut epi::Frame<'_>) {
+    fn prev_img(&mut self, frame: &mut eframe::epi::Frame<'_>) {
         if !self.events.is_empty() {
             let new_idx = if self.cur_ev_idx == 0 {
                 self.events.len() - 1
@@ -133,7 +172,7 @@ impl App {
         }
     }
 
-    fn next_img(&mut self, frame: &mut epi::Frame<'_>) {
+    fn next_img(&mut self, frame: &mut eframe::epi::Frame<'_>) {
         if !self.events.is_empty() {
             self.update_ev(
                 self.cur_ev_idx.wrapping_add(1) % self.events.len(),
@@ -142,9 +181,9 @@ impl App {
         }
     }
 
-    fn handle_keys(&mut self, input: &egui::InputState, frame: &mut epi::Frame<'_>) {
-        use egui::Key;
-        use egui::Event;
+    fn handle_keys(&mut self, input: &eframe::egui::InputState, frame: &mut eframe::epi::Frame<'_>) {
+        use eframe::egui::Key;
+        use eframe::egui::Event;
 
         let key_events = input.events.iter().filter_map(
             |ev| if let Event::Key{ key, pressed, modifiers } = ev {
@@ -166,75 +205,134 @@ impl App {
             }
         }
     }
+
+    fn show_jet_cluster_settings(&mut self, ctx: &eframe::egui::CtxRef) {
+        let clustering = &mut self.clustering;
+        eframe::egui::Window::new("Jet clustering")
+            .open(&mut self.clustering_settings_open)
+            .show(ctx, |ui| {
+                ui.checkbox(&mut clustering.enable, "Enable jet clustering");
+                ui.scope(|ui| {
+                    ui.set_enabled(clustering.enable);
+
+                    use JetAlgorithm::*;
+                    let algo = &mut clustering.jet_def.algorithm;
+                    eframe::egui::ComboBox::from_label( "Jet algorithm")
+                        .selected_text(
+                            match algo {
+                                AntiKt => "anti-kt",
+                                Kt => "kt",
+                                CambridgeAachen => "Cambridge/Aachen"
+                            }
+                        )
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(algo, AntiKt, "anti-kt");
+                            ui.selectable_value(algo, Kt, "kt");
+                            ui.selectable_value(algo, CambridgeAachen, "Cambridge/Aachen");
+                        });
+                    let jet_def =  &mut clustering.jet_def;
+                    ui.horizontal(|ui| {
+                        ui.add(
+                            eframe::egui::DragValue::new(&mut jet_def.radius)
+                                .clamp_range(0.0..=6.5)
+                                .speed(0.1)
+                        );
+                        ui.label("Jet radius");
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.add(
+                            eframe::egui::DragValue::new(&mut jet_def.min_pt)
+                                .clamp_range(0.0..=f64::MAX)
+                        );
+                        ui.label("Minimum jet transverse momentum");
+                    });
+                });
+            });
+    }
+
+    fn draw_bottom_panel(&mut self, ctx: &eframe::egui::CtxRef, frame: &mut eframe::epi::Frame<'_>) {
+        eframe::egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
+            // TODO: this doesn't work
+            // ui.vertical_centered_justified(|ui| {
+            eframe::egui::Grid::new("bottom_panel_grid").show(ui, |ui| {
+                if ui.add(eframe::egui::Button::new("<-")).clicked() {
+                    self.prev_img(frame)
+                }
+                let response = ui.add(
+                    eframe::egui::TextEdit::singleline(&mut self.ev_idx_str)
+                        .text_color_opt(self.ev_idx_str_col)
+                );
+                if response.changed() {
+                    match self.ev_idx_str.parse::<usize>() {
+                        Ok(ev_idx) if ev_idx > 0 && ev_idx <= self.events.len() => {
+                            self.update_ev(ev_idx - 1, frame.tex_allocator());
+                            self.ev_idx_str_col = None;
+                        },
+                        _ => {
+                            self.ev_idx_str_col = Some(eframe::egui::Color32::RED);
+                        }
+                    };
+                }
+                ui.label(format!("/{}", self.events.len()));
+                if ui.add(eframe::egui::Button::new("->")).clicked() {
+                    self.next_img(frame)
+                }
+            })
+            // })
+        });
+    }
+
+    fn draw_menu_panel(&mut self, ctx: &eframe::egui::CtxRef, frame: &mut eframe::epi::Frame<'_>) {
+        eframe::egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+            eframe::egui::menu::bar(ui, |ui| {
+                eframe::egui::menu::menu(ui, "File", |ui| {
+                    if ui.button("Quit\t(Ctrl+q)").clicked() {
+                        frame.quit();
+                    }
+                });
+                eframe::egui::menu::menu(ui, "Settings", |ui| {
+                    if ui.button("Jet clustering").clicked() {
+                        self.clustering_settings_open = true;
+                    }
+                });
+            });
+        });
+    }
+
 }
 
-impl epi::App for App {
+impl eframe::epi::App for App {
     fn name(&self) -> &str {
         "evil"
     }
 
     /// Called by the framework to load old app state (if any).
-    #[cfg(feature = "persistence")]
     fn setup(
         &mut self,
-        _ctx: &egui::CtxRef,
-        _frame: &mut epi::Frame<'_>,
+        _ctx: &eframe::egui::CtxRef,
+        _frame: &mut eframe::epi::Frame<'_>,
         storage: Option<&dyn epi::Storage>,
     ) {
         if let Some(storage) = storage {
-            *self = epi::get_value(storage, epi::APP_KEY).unwrap_or_default()
+            *self = epi::get_value(storage, eframe::epi::APP_KEY).unwrap_or_default()
         }
     }
 
     /// Called by the frame work to save state before shutdown.
-    #[cfg(feature = "persistence")]
-    fn save(&mut self, storage: &mut dyn epi::Storage) {
-        epi::set_value(storage, epi::APP_KEY, self);
+    fn save(&mut self, storage: &mut dyn eframe::epi::Storage) {
+        epi::set_value(storage, eframe::epi::APP_KEY, self);
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+    fn update(&mut self, ctx: &eframe::egui::CtxRef, frame: &mut eframe::epi::Frame<'_>) {
         self.handle_keys(ctx.input(), frame);
 
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-            egui::menu::bar(ui, |ui| {
-                egui::menu::menu(ui, "File", |ui| {
-                    if ui.button("Quit\t(Ctrl+q)").clicked() {
-                        frame.quit();
-                    }
-                });
-            });
-        });
+        self.draw_menu_panel(ctx, frame);
 
         if !self.events.is_empty() {
-            egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
-                egui::Grid::new("bottom_panel_grid").show(ui, |ui| {
-                    if ui.add(egui::Button::new("<-")).clicked() {
-                        self.prev_img(frame)
-                    }
-                    let response = ui.add(
-                        egui::TextEdit::singleline(&mut self.ev_idx_str)
-                            .text_color_opt(self.ev_idx_str_col)
-                    );
-                    if response.changed() {
-                        match self.ev_idx_str.parse::<usize>() {
-                            Ok(ev_idx) if ev_idx > 0 && ev_idx <= self.events.len() => {
-                                self.update_ev(ev_idx - 1, frame.tex_allocator());
-                                self.ev_idx_str_col = None;
-                            },
-                            _ => {
-                                self.ev_idx_str_col = Some(egui::Color32::RED);
-                            }
-                        };
-                    }
-                    ui.label(format!("/{}", self.events.len()));
-                    if ui.add(egui::Button::new("->")).clicked() {
-                        self.next_img(frame)
-                    }
-                });
-            });
+            self.draw_bottom_panel(ctx, frame);
         }
 
         if self.first_draw {
@@ -247,7 +345,7 @@ impl epi::App for App {
             self.first_draw = false;
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        eframe::egui::CentralPanel::default().show(ctx, |ui| {
             let img_height = ui.available_height() / 2.;
             let plot_width = ui.available_width() / 2.;
             trace!("nominal size: {} x {}", plot_width, img_height);
@@ -255,16 +353,16 @@ impl epi::App for App {
                 col[0].image(self.y_phi_id, [plot_width, img_height]);
                 col[1].image(self.y_logpt_id, [plot_width, img_height]);
             });
-            egui::warn_if_debug_build(ui);
+            eframe::egui::warn_if_debug_build(ui);
         });
 
-        if false {
-            egui::Window::new("Window").show(ctx, |ui| {
-                ui.label("Windows can be moved by dragging them.");
-                ui.label("They are automatically sized based on contents.");
-                ui.label("You can turn on resizing and scrolling if you like.");
-                ui.label("You would normally chose either panels OR windows.");
-            });
+        if self.clustering_settings_open {
+            let old = self.clustering;
+            self.show_jet_cluster_settings(ctx);
+            if self.clustering != old {
+                self.plotter.r_jet = self.clustering.jet_def.radius;
+                self.update_img(frame.tex_allocator())
+            }
         }
 
         let size = ctx.used_size();
