@@ -27,14 +27,14 @@ const Y_MIN: f64 = -5.;
 const Y_MAX: f64 = 5.;
 const Y_AXIS_MIN: f64 = GOLDEN_RATIO * PHI_AXIS_MIN;
 const Y_AXIS_MAX: f64 = GOLDEN_RATIO * PHI_AXIS_MAX;
-const MAJOR_TICK_SIZE: f64 = 0.15;
-const MINOR_TICK_SIZE: f64 = MAJOR_TICK_SIZE / 2.;
+const MAJOR_TICK_SIZE: i32 = 14;
+const MINOR_TICK_SIZE: i32 = MAJOR_TICK_SIZE / 2;
 const N_MAJOR_PHI_TICKS: usize = 5;
 const N_MINOR_PHI_TICKS: usize = 3;
 
-const X_AXIS_LABEL_OFFSET: f64 = 0.45;
-const Y_AXIS_LABEL_OFFSET: f64 = 0.9;
-const TICK_LABEL_OFFSET: f64 = 0.25;
+const X_AXIS_LABEL_OFFSET: i32 = 50;
+const Y_AXIS_LABEL_OFFSET: i32 = 60;
+const TICK_LABEL_OFFSET: i32 = 10;
 const LABEL_FONT_SIZE: f64 = 40.;
 
 const BOX_CORNER: (f64, f64) = (0.05, 0.05);
@@ -168,6 +168,7 @@ impl Plotter {
                 &chart,
                 particle_name(id),
                 (pos.0 + 0.2, pos.1),
+                (0, 0),
                 Pos{ h_pos: HPos::Left, v_pos: VPos::Center }
             );
 
@@ -225,6 +226,7 @@ impl Plotter {
                 &chart,
                 particle_name(id),
                 (pos.0 + 0.2, pos.1),
+                (0, 0),
                 Pos{ h_pos: HPos::Left, v_pos: VPos::Center }
             );
 
@@ -237,9 +239,10 @@ impl Plotter {
     // TODO: return Result
     fn draw_x_tick<'b, DB, X, Y, S>(
         &self,
+        root: & DrawingArea<DB, Shift>,
         chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
         pos: f64,
-        size: f64,
+        size: i32,
         align: VerticalPosition,
         style: S,
     )
@@ -249,22 +252,27 @@ impl Plotter {
         Y: Ranged<ValueType = f64>,
         S: Into<ShapeStyle>,
     {
-
-        let (y_start, y_end) = match align {
-            VerticalPosition::Bottom => (chart.y_range().start, chart.y_range().start + size),
-            VerticalPosition::Top => (chart.y_range().end, chart.y_range().end - size),
+        let y_start = match align {
+            VerticalPosition::Bottom => chart.y_range().start,
+            VerticalPosition::Top => chart.y_range().end,
         };
-        chart.draw_series(
-            LineSeries::new([(pos, y_start), (pos, y_end)], style)
+        let pos_start = chart.backend_coord(&(pos, y_start));
+        let pos_end = match align {
+            VerticalPosition::Bottom => (pos_start.0, pos_start.1 - size),
+            VerticalPosition::Top => (pos_start.0, pos_start.1 + size),
+        };
+        root.draw(
+            &PathElement::new([pos_start, pos_end], style)
         ).unwrap();
     }
 
     // TODO: return Result
     fn draw_y_tick<'b, DB, X, Y, S>(
         &self,
+        root: & DrawingArea<DB, Shift>,
         chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
         pos: f64,
-        size: f64,
+        size: i32,
         align: HorizontalPosition,
         style: S,
     )
@@ -274,21 +282,26 @@ impl Plotter {
         Y: Ranged<ValueType = f64>,
         S: Into<ShapeStyle>,
     {
-
-        let (x_start, x_end) = match align {
-            HorizontalPosition::Left => (chart.x_range().start, chart.x_range().start + size),
-            HorizontalPosition::Right => (chart.x_range().end, chart.x_range().end - size),
+        let x_start = match align {
+            HorizontalPosition::Left => chart.x_range().start,
+            HorizontalPosition::Right => chart.x_range().end,
         };
-        chart.draw_series(
-            LineSeries::new([(x_start, pos), (x_end, pos)], style)
+        let pos_start = chart.backend_coord(&(x_start, pos));
+        let pos_end = match align {
+            HorizontalPosition::Left => (pos_start.0 + size, pos_start.1),
+            HorizontalPosition::Right => (pos_start.0 - size, pos_start.1),
+        };
+        root.draw(
+            &PathElement::new([pos_start, pos_end], style)
         ).unwrap();
     }
 
     fn draw_tick<'b, DB, X, Y, S>(
         &self,
+        root: & DrawingArea<DB, Shift>,
         chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
         pos: f64,
-        size: f64,
+        size: i32,
         align: Position,
         style: S,
     )
@@ -301,18 +314,19 @@ impl Plotter {
         use HorizontalPosition::{Left, Right};
         use VerticalPosition::{Bottom, Top};
         match align {
-            Position::Left => self.draw_y_tick(chart, pos, size, Left, style),
-            Position::Right => self.draw_y_tick(chart, pos, size, Right, style),
-            Position::Bottom => self.draw_x_tick(chart, pos, size, Bottom, style),
-            Position::Top => self.draw_x_tick(chart, pos, size, Top, style),
+            Position::Left => self.draw_y_tick(root, chart, pos, size, Left, style),
+            Position::Right => self.draw_y_tick(root, chart, pos, size, Right, style),
+            Position::Bottom => self.draw_x_tick(root, chart, pos, size, Bottom, style),
+            Position::Top => self.draw_x_tick(root, chart, pos, size, Top, style),
         }
     }
 
     fn draw_ticks<'b, DB, X, Y, S, P, I>(
         &self,
+        root: & DrawingArea<DB, Shift>,
         chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
         pos: P,
-        size: f64,
+        size: i32,
         align: Position,
         style: S,
     )
@@ -326,12 +340,13 @@ impl Plotter {
     {
         let style = style.into();
         for pos in pos.into_iter() {
-            self.draw_tick(chart, *pos.borrow(), size, align, style.clone())
+            self.draw_tick(root, chart, *pos.borrow(), size, align, style.clone())
         }
     }
 
     fn draw_phi_ticks<DB: DrawingBackend, X, Y>(
         &self,
+        root: & DrawingArea<DB, Shift>,
         chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>
     )
     where
@@ -340,13 +355,14 @@ impl Plotter {
     {
         use Position::{Left, Right};
         for align in [Left, Right] {
-            self.draw_ticks(chart, MAJOR_PHI_TICK_POS.iter(), MAJOR_TICK_SIZE, align, &GREY);
-            self.draw_ticks(chart, MINOR_PHI_TICK_POS.iter(), MINOR_TICK_SIZE, align, &GREY);
+            self.draw_ticks(root, chart, MAJOR_PHI_TICK_POS.iter(), MAJOR_TICK_SIZE, align, &GREY);
+            self.draw_ticks(root, chart, MINOR_PHI_TICK_POS.iter(), MINOR_TICK_SIZE, align, &GREY);
         }
     }
 
     fn draw_logpt_ticks<DB: DrawingBackend, X, Y>(
         &self,
+        root: & DrawingArea<DB, Shift>,
         chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
         range: Range<i64>
     )
@@ -357,18 +373,19 @@ impl Plotter {
         use Position::{Left, Right};
         for align in [Left, Right] {
             let major_tick_pos = range.clone().into_iter().map(|logpt| logpt as f64);
-            self.draw_ticks(chart, major_tick_pos, MAJOR_TICK_SIZE, align, &GREY);
+            self.draw_ticks(root, chart, major_tick_pos, MAJOR_TICK_SIZE, align, &GREY);
             let mut range = range.clone();
             range.end += 1;
             let minor_tick_pos = range.into_iter().map(
                 |pos| (1..10).map(move |step| pos as f64 + (step as f64).log10() - 1.)
             ).flatten();
-            self.draw_ticks(chart, minor_tick_pos, MINOR_TICK_SIZE, align, &GREY);
+            self.draw_ticks(root, chart, minor_tick_pos, MINOR_TICK_SIZE, align, &GREY);
         }
     }
 
     fn draw_rap_ticks<DB: DrawingBackend, X, Y>(
         &self,
+        root: & DrawingArea<DB, Shift>,
         chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>
     )
     where
@@ -377,8 +394,8 @@ impl Plotter {
     {
         use Position::{Bottom, Top};
         for align in [Bottom, Top] {
-            self.draw_ticks(chart, MAJOR_Y_TICK_POS.iter(), MAJOR_TICK_SIZE, align, &GREY);
-            self.draw_ticks(chart, MINOR_Y_TICK_POS.iter(), MINOR_TICK_SIZE, align, &GREY);
+            self.draw_ticks(root, chart, MAJOR_Y_TICK_POS.iter(), MAJOR_TICK_SIZE, align, &GREY);
+            self.draw_ticks(root, chart, MINOR_Y_TICK_POS.iter(), MINOR_TICK_SIZE, align, &GREY);
         }
     }
 
@@ -398,7 +415,8 @@ impl Plotter {
             &root,
             &chart,
             text,
-            (Y_AXIS_MIN - TICK_LABEL_OFFSET, pos),
+            (Y_AXIS_MIN , pos),
+            (- TICK_LABEL_OFFSET, 0),
             Pos{ h_pos: HPos::Right, v_pos: VPos::Center }
         );
     }
@@ -415,13 +433,13 @@ impl Plotter {
         X: Ranged<ValueType = f64>,
         Y: Ranged<ValueType = f64>,
     {
-        const H_CORR: f64 = 0.1;
         let ymin = chart.y_range().start;
         self.draw_text(
             &root,
             &chart,
             text,
-            (pos, ymin - TICK_LABEL_OFFSET + H_CORR),
+            (pos, ymin),
+            (0, TICK_LABEL_OFFSET),
             Pos{ h_pos: HPos::Center, v_pos: VPos::Top }
         );
     }
@@ -432,6 +450,7 @@ impl Plotter {
         chart: & ChartContext<'_, DB, Cartesian2d<X, Y>>,
         text: S,
         pos: (f64, f64),
+        offset: (i32, i32),
         align: Pos,
     )
     where
@@ -439,6 +458,9 @@ impl Plotter {
         X: Ranged<ValueType = f64>,
         Y: Ranged<ValueType = f64>,
     {
+        let mut pos = chart.backend_coord(&pos);
+        pos.0 += offset.0;
+        pos.1 += offset.1;
         root.draw_text(
             text.as_ref(),
             &TextStyle {
@@ -446,7 +468,7 @@ impl Plotter {
                 color: BackendColor{ alpha: 1., rgb: (GREY.0, GREY.1, GREY.2) },
                 pos: align
             },
-            chart.backend_coord(&pos),
+            pos,
         ).unwrap()
     }
 
@@ -460,13 +482,19 @@ impl Plotter {
         X: Ranged<ValueType = f64>,
         Y: Ranged<ValueType = f64>,
     {
-        self.draw_phi_ticks(&mut chart);
+        self.draw_phi_ticks(root, &mut chart);
         self.phi_tick_label(&root, &chart, "π", PI);
         self.phi_tick_label(&root, &chart, "π/2", PI / 2.);
         self.phi_tick_label(&root, &chart, "0", 0.);
         self.phi_tick_label(&root, &chart, "-π/2", -PI / 2.);
         self.phi_tick_label(&root, &chart, "-π", -PI);
-        self.draw_text(&root, &chart, "φ", (Y_AXIS_MIN - Y_AXIS_LABEL_OFFSET, 0.0), Pos{ h_pos: HPos::Right, v_pos: VPos::Center });
+        self.draw_text(
+            &root, &chart,
+            "φ",
+            (Y_AXIS_MIN, 0.0),
+            (- Y_AXIS_LABEL_OFFSET, 0),
+            Pos{ h_pos: HPos::Right, v_pos: VPos::Center }
+        );
     }
 
     fn dress_logpt_axis<DB, X, Y>(
@@ -481,7 +509,7 @@ impl Plotter {
         Y: Ranged<ValueType = f64>,
     {
         range.end += 1;
-        self.draw_logpt_ticks(&mut chart, range.clone());
+        self.draw_logpt_ticks(root, &mut chart, range.clone());
         for logpt in range {
             let logpt = logpt as f64;
             self.draw_text(
@@ -489,25 +517,32 @@ impl Plotter {
                 &chart,
                 // TODO: proper superscript
                 format!("10^{}", logpt),
-                (Y_AXIS_MIN - TICK_LABEL_OFFSET, logpt),
+                (Y_AXIS_MIN, logpt),
+                ( - TICK_LABEL_OFFSET, 0),
                 Pos{ h_pos: HPos::Right, v_pos: VPos::Center }
             );
         }
         let y_range = chart.y_range();
-        self.draw_text(&root, &chart, "pt", (Y_AXIS_MIN - Y_AXIS_LABEL_OFFSET, (y_range.start + y_range.end) / 2.), Pos{ h_pos: HPos::Right, v_pos: VPos::Center });
+        self.draw_text(
+            &root, &chart,
+            "pt",
+            (Y_AXIS_MIN, (y_range.start + y_range.end) / 2.),
+            ( - Y_AXIS_LABEL_OFFSET, 0),
+            Pos{ h_pos: HPos::Right, v_pos: VPos::Center }
+        );
     }
 
     fn dress_rap_axis<DB, X, Y>(
         &self,
         root: & DrawingArea<DB, Shift>,
-        mut chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
+        chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
     )
     where
         DB: DrawingBackend,
         X: Ranged<ValueType = f64>,
         Y: Ranged<ValueType = f64>,
     {
-        self.draw_rap_ticks(&mut chart);
+        self.draw_rap_ticks(root, chart);
         for y in (Y_MIN as i32)..=(Y_MAX as i32) {
             self.rap_tick_label(&root, &chart, &format!("{}", y), y_to_coord(y as f64));
         }
@@ -515,7 +550,13 @@ impl Plotter {
         self.rap_tick_label(&root, &chart, "-∞", Y_MIN - 0.1);
         self.rap_tick_label(&root, &chart, "∞", Y_MAX);
         let ymin = chart.y_range().start;
-        self.draw_text(&root, &chart, "y", (0., ymin - X_AXIS_LABEL_OFFSET), Pos{ h_pos: HPos::Center, v_pos: VPos::Top });
+        self.draw_text(
+            &root, &chart,
+            "y",
+            (0., ymin),
+            (0, X_AXIS_LABEL_OFFSET),
+            Pos{ h_pos: HPos::Center, v_pos: VPos::Top }
+        );
     }
 
     fn draw_particle_at<DB, X, Y>(
