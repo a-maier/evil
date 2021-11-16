@@ -37,7 +37,7 @@ const Y_AXIS_LABEL_OFFSET: i32 = 60;
 const TICK_LABEL_OFFSET: i32 = 10;
 const LABEL_FONT_SIZE: f64 = 40.;
 
-const BOX_CORNER: (f64, f64) = (0.05, 0.05);
+const BOX_CORNER: (i32, i32) = (5, 5);
 const CIRCLE_SIZE: i32 = 5;
 
 const LEGEND_X_POS: f64 = 4.;
@@ -589,9 +589,10 @@ impl Plotter {
                     )).unwrap();
             },
             SpinType::Fermion => {
+                let centre = chart.backend_coord(&centre);
                 let coord = [
-                    chart.backend_coord(&sub(centre, BOX_CORNER)),
-                    chart.backend_coord(&add(centre, BOX_CORNER))
+                    sub(centre, BOX_CORNER),
+                    add(centre, BOX_CORNER)
                 ];
                 root.draw(
                     &Rectangle::new(
