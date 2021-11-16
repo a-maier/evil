@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::default::Default;
 use std::ops::Range;
 
@@ -346,12 +347,23 @@ impl eframe::epi::App for App {
         }
 
         eframe::egui::CentralPanel::default().show(ctx, |ui| {
-            let img_height = ui.available_height() / 2.;
-            let plot_width = ui.available_width() / 2.;
+            let (width, height) = self.y_phi.size();
+            let aspect_ratio = width as f32 / height as f32;
+            let mut plot_width = ui.available_width() / 2.;
+            let mut img_height = ui.available_height() / 2.;
+            match (plot_width / img_height).partial_cmp(&aspect_ratio) {
+                Some(Ordering::Less) => img_height = plot_width / aspect_ratio,
+                Some(Ordering::Greater) => plot_width = aspect_ratio * img_height,
+                _ => {}
+            };
             trace!("nominal size: {} x {}", plot_width, img_height);
             ui.columns(2, |col| {
-                col[0].image(self.y_phi_id, [plot_width, img_height]);
-                col[1].image(self.y_logpt_id, [plot_width, img_height]);
+                col[0].vertical_centered(
+                    |ui| ui.image(self.y_phi_id, [plot_width, img_height])
+                );
+                col[1].vertical_centered(
+                    |ui| ui.image(self.y_logpt_id, [plot_width, img_height])
+                );
             });
             eframe::egui::warn_if_debug_build(ui);
         });
