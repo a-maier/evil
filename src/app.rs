@@ -197,10 +197,10 @@ impl App {
         for (key, pressed, modifiers) in key_events {
             if modifiers.ctrl && key == &Key::Q {
                 frame.quit();
-            } else if *pressed {
+            } else if *pressed && modifiers.is_none() {
                 match key {
-                    Key::ArrowRight => self.next_img(frame),
-                    Key::ArrowLeft => self.prev_img(frame),
+                    Key::ArrowRight | Key::PageDown => self.next_img(frame),
+                    Key::ArrowLeft | Key::PageUp => self.prev_img(frame),
                     _ => {}
                 }
             }
