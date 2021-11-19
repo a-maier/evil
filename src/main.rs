@@ -6,6 +6,7 @@ mod image;
 mod import;
 mod jets;
 mod opt;
+mod font;
 mod particle;
 mod plotter;
 

@@ -1,4 +1,5 @@
 use crate::event::Event;
+use crate::font::Font;
 use crate::particle::{Particle, particle_name, SpinType, spin_type};
 
 use std::borrow::Borrow;
@@ -35,7 +36,6 @@ const N_MINOR_PHI_TICKS: usize = 3;
 const X_AXIS_LABEL_OFFSET: i32 = 50;
 const Y_AXIS_LABEL_OFFSET: i32 = 60;
 const TICK_LABEL_OFFSET: i32 = 10;
-const LABEL_FONT_SIZE: f64 = 40.;
 
 const BOX_CORNER: (i32, i32) = (5, 5);
 const CIRCLE_SIZE: i32 = 5;
@@ -95,6 +95,8 @@ lazy_static!(
 #[derive(Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
 pub struct Plotter {
     pub r_jet: f64,
+
+    pub font: Font,
 }
 
 impl Plotter {
@@ -187,6 +189,7 @@ impl Plotter {
     ) -> Result<()> {
 
         let root = SVGBackend::with_string(result, (1024, 768)).into_drawing_area();
+        root.fill(&WHITE)?;
         // let root = root.margin(10, 10, 10, 10);
         let logpt_start = logpt_range.start - 0.05 * logpt_range.start.abs();
         let logpt_end = logpt_range.end + 0.05 * logpt_range.end.abs();
@@ -464,7 +467,7 @@ impl Plotter {
         root.draw_text(
             text.as_ref(),
             &TextStyle {
-                font: ("serif", LABEL_FONT_SIZE).into_font(),
+                font: (&self.font).into(),
                 color: BackendColor{ alpha: 1., rgb: (GREY.0, GREY.1, GREY.2) },
                 pos: align
             },

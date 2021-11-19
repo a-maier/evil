@@ -1,13 +1,16 @@
 use std::cmp::Ordering;
 use std::default::Default;
 use std::ops::Range;
+use std::string::ToString;
 
 use crate::image::Image;
 use crate::event::Event;
+use crate::font::{FontFamily, FontStyle};
 use crate::config::Config;
 use crate::plotter::Plotter;
 use crate::jets::{JetAlgorithm, JetDefinition};
 
+use font_loader::system_fonts;
 use jetty::PseudoJet;
 use log::{error, debug, trace};
 use serde::{Deserialize, Serialize};
@@ -73,6 +76,12 @@ pub struct App {
 
     #[serde(skip)]
     clustering_settings_open: bool,
+
+    #[serde(skip)]
+    plotter_settings_open: bool,
+
+    #[serde(skip)]
+    font_names: Vec<String>,
 }
 
 impl App {
@@ -123,6 +132,8 @@ impl App {
             clustering: Default::default(),
             window_size: Default::default(),
             clustering_settings_open: false,
+            plotter_settings_open: false,
+            font_names: system_fonts::query_all(),
         }
     }
 
@@ -252,6 +263,74 @@ impl App {
             });
     }
 
+    fn plotter_settings_changed(&mut self, ctx: &eframe::egui::CtxRef) -> bool {
+        let font_names = &self.font_names;
+        let plotter = &mut self.plotter;
+        let mut changed = false;
+        eframe::egui::Window::new("Plotting")
+            .open(&mut self.plotter_settings_open)
+            .show(ctx, |ui| {
+                ui.horizontal(
+                    |ui| {
+                        use FontFamily::*;
+                        let old_family = match &plotter.font.family {
+                            Serif => "serif",
+                            SansSerif => "sans serif",
+                            Monospace => "monospace",
+                            Name(s) => s.as_str(),
+                        };
+                        let mut family = old_family.to_string();
+                        ui.label("Font");
+                        eframe::egui::ComboBox::from_id_source(0)
+                            .selected_text(&family)
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut family, "serif".to_string(), "serif");
+                                ui.selectable_value(&mut family, "sans serif".to_string(), "sans serif");
+                                ui.selectable_value(&mut family, "monospace".to_string(), "monospace");
+                                for name in  font_names {
+                                    ui.selectable_value(&mut family, name.to_string(), name);
+                                }
+                            });
+
+                        if family != old_family {
+                            plotter.font.family = match family.as_str() {
+                                "serif"       => Serif     ,
+                                "sans serif"  => SansSerif ,
+                                "monospace"   => Monospace ,
+                                s    => Name(s.to_string())   ,
+                            };
+                            changed = true;
+                        }
+
+                        use FontStyle::*;
+                        let mut style = plotter.font.style;
+                        eframe::egui::ComboBox::from_id_source(1)
+                            .selected_text(style.to_string())
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut style, Normal, "Normal");
+                                ui.selectable_value(&mut style, Oblique, "Oblique");
+                                ui.selectable_value(&mut style, Italic, "Italic");
+                                ui.selectable_value(&mut style, Bold, "Bold");
+                            });
+                        if style != plotter.font.style {
+                            plotter.font.style = style;
+                            changed = true;
+                        }
+
+                        let mut size = plotter.font.size;
+                        ui.add(
+                            eframe::egui::DragValue::new(&mut size)
+                                .clamp_range(0.0..=f64::MAX)
+                        );
+                        if size != plotter.font.size {
+                            plotter.font.size = size;
+                            changed = true;
+                        }
+                    });
+            });
+        changed
+    }
+
     fn draw_bottom_panel(&mut self, ctx: &eframe::egui::CtxRef, frame: &mut eframe::epi::Frame<'_>) {
         eframe::egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             // TODO: this doesn't work
@@ -295,6 +374,9 @@ impl App {
                 eframe::egui::menu::menu(ui, "Settings", |ui| {
                     if ui.button("Jet clustering").clicked() {
                         self.clustering_settings_open = true;
+                    }
+                    if ui.button("Plotting").clicked() {
+                        self.plotter_settings_open = true;
                     }
                 });
             });
@@ -375,6 +457,10 @@ impl eframe::epi::App for App {
                 self.plotter.r_jet = self.clustering.jet_def.radius;
                 self.update_img(frame.tex_allocator())
             }
+        }
+
+        if self.plotter_settings_open && self.plotter_settings_changed(ctx) {
+            self.update_img(frame.tex_allocator())
         }
 
         let size = ctx.used_size();
