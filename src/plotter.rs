@@ -3,8 +3,8 @@ use crate::font::Font;
 use crate::particle::{Particle, particle_name, SpinType, spin_type};
 
 use std::borrow::Borrow;
-use std::collections::BTreeSet;
-use std::iter;
+use std::collections::{BTreeSet, HashMap};
+use std::iter::{self, FromIterator};
 use std::f64::consts::PI;
 use std::ops::Range;
 
@@ -14,7 +14,10 @@ use lazy_static::lazy_static;
 use num_traits::float::Float;
 use plotters::prelude::*;
 use plotters::coord::Shift;
-use plotters::style::text_anchor::{HPos, Pos, VPos};
+use plotters::style::{
+    RGBAColor,
+    text_anchor::{HPos, Pos, VPos}
+};
 use plotters_backend::BackendColor;
 use log::{debug};
 use serde::{Deserialize, Serialize};
@@ -45,6 +48,12 @@ const LEGEND_START_REL: f64 = 0.95;
 const LEGEND_REL_STEP: f64 = 0.05;
 
 pub const GREY: RGBColor = RGBColor(130, 130, 130);
+
+lazy_static!{
+    static ref CYAN: egui::Color32 = egui::Color32::from_rgb(0, 159, 223);
+    static ref ORANGE: egui::Color32 = egui::Color32::from_rgb(241, 143, 31);
+    static ref MAGENTA: egui::Color32 = egui::Color32::from_rgb(255, 0, 255);
+}
 
 lazy_static!(
     static ref MAJOR_PHI_TICK_POS: [f64; N_MAJOR_PHI_TICKS] = {
@@ -92,11 +101,48 @@ lazy_static!(
     };
 );
 
-#[derive(Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
+pub struct ColourSettings {
+    pub frame: egui::Color32,
+    pub background: egui::Color32,
+    pub particles: HashMap<i32, egui::Color32>
+}
+
+impl Default for ColourSettings {
+    fn default() -> Self {
+        Self {
+            frame: egui::Color32::GRAY,
+            background: egui::Color32::TRANSPARENT,
+            particles: HashMap::from_iter([
+                (1,  egui::Color32::BLUE),
+                (2,  egui::Color32::DARK_GREEN),
+                (3,  *CYAN),
+                (4,  *MAGENTA),
+                (5,  egui::Color32::BLACK),
+                (6,  egui::Color32::BROWN),
+                (11, egui::Color32::YELLOW),
+                (12, egui::Color32::WHITE),
+                (13, *ORANGE),
+                (14, egui::Color32::LIGHT_GRAY),
+                (15, egui::Color32::RED),
+                (16, egui::Color32::GRAY),
+                (21, egui::Color32::BLUE),
+                (22, egui::Color32::YELLOW),
+                (23, egui::Color32::RED),
+                (24, egui::Color32::DARK_GREEN),
+                (25, egui::Color32::WHITE),
+            ])
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Default, Deserialize, Serialize)]
 pub struct Plotter {
     pub r_jet: f64,
 
     pub font: Font,
+
+    pub colour: ColourSettings,
 }
 
 impl Plotter {
@@ -133,7 +179,7 @@ impl Plotter {
     ) -> Result<()> {
 
         let root = SVGBackend::with_string(result, (1024, 768)).into_drawing_area();
-        root.fill(&WHITE)?;
+        root.fill(&to_plotters_col(self.colour.background))?;
         //let root = root.margin(10, 10, 10, 10);
         let mut chart = ChartBuilder::on(&root)
             .margin(5)
@@ -189,7 +235,7 @@ impl Plotter {
     ) -> Result<()> {
 
         let root = SVGBackend::with_string(result, (1024, 768)).into_drawing_area();
-        root.fill(&WHITE)?;
+        root.fill(&to_plotters_col(self.colour.background))?;
         // let root = root.margin(10, 10, 10, 10);
         let logpt_start = logpt_range.start - 0.05 * logpt_range.start.abs();
         let logpt_end = logpt_range.end + 0.05 * logpt_range.end.abs();
@@ -324,14 +370,13 @@ impl Plotter {
         }
     }
 
-    fn draw_ticks<'b, DB, X, Y, S, P, I>(
+    fn draw_ticks<'b, DB, X, Y, P, I>(
         &self,
         root: & DrawingArea<DB, Shift>,
         chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
         pos: P,
         size: i32,
         align: Position,
-        style: S,
     )
     where
         DB: DrawingBackend,
@@ -339,11 +384,11 @@ impl Plotter {
         I: Borrow<f64>,
         X: Ranged<ValueType = f64>,
         Y: Ranged<ValueType = f64>,
-        S: Into<ShapeStyle>,
     {
-        let style = style.into();
+        let col: RGBAColor = to_plotters_col(self.colour.frame);
+        let style: ShapeStyle = col.into();
         for pos in pos.into_iter() {
-            self.draw_tick(root, chart, *pos.borrow(), size, align, style.clone())
+            self.draw_tick(root, chart, *pos.borrow(), size, align, style.clone());
         }
     }
 
@@ -358,8 +403,8 @@ impl Plotter {
     {
         use Position::{Left, Right};
         for align in [Left, Right] {
-            self.draw_ticks(root, chart, MAJOR_PHI_TICK_POS.iter(), MAJOR_TICK_SIZE, align, &GREY);
-            self.draw_ticks(root, chart, MINOR_PHI_TICK_POS.iter(), MINOR_TICK_SIZE, align, &GREY);
+            self.draw_ticks(root, chart, MAJOR_PHI_TICK_POS.iter(), MAJOR_TICK_SIZE, align);
+            self.draw_ticks(root, chart, MINOR_PHI_TICK_POS.iter(), MINOR_TICK_SIZE, align);
         }
     }
 
@@ -376,13 +421,13 @@ impl Plotter {
         use Position::{Left, Right};
         for align in [Left, Right] {
             let major_tick_pos = range.clone().into_iter().map(|logpt| logpt as f64);
-            self.draw_ticks(root, chart, major_tick_pos, MAJOR_TICK_SIZE, align, &GREY);
+            self.draw_ticks(root, chart, major_tick_pos, MAJOR_TICK_SIZE, align);
             let mut range = range.clone();
             range.end += 1;
             let minor_tick_pos = range.into_iter().map(
                 |pos| (1..10).map(move |step| pos as f64 + (step as f64).log10() - 1.)
             ).flatten();
-            self.draw_ticks(root, chart, minor_tick_pos, MINOR_TICK_SIZE, align, &GREY);
+            self.draw_ticks(root, chart, minor_tick_pos, MINOR_TICK_SIZE, align);
         }
     }
 
@@ -397,8 +442,8 @@ impl Plotter {
     {
         use Position::{Bottom, Top};
         for align in [Bottom, Top] {
-            self.draw_ticks(root, chart, MAJOR_Y_TICK_POS.iter(), MAJOR_TICK_SIZE, align, &GREY);
-            self.draw_ticks(root, chart, MINOR_Y_TICK_POS.iter(), MINOR_TICK_SIZE, align, &GREY);
+            self.draw_ticks(root, chart, MAJOR_Y_TICK_POS.iter(), MAJOR_TICK_SIZE, align);
+            self.draw_ticks(root, chart, MINOR_Y_TICK_POS.iter(), MINOR_TICK_SIZE, align);
         }
     }
 
@@ -461,6 +506,7 @@ impl Plotter {
         X: Ranged<ValueType = f64>,
         Y: Ranged<ValueType = f64>,
     {
+        let col = to_plotters_col(self.colour.frame);
         let mut pos = chart.backend_coord(&pos);
         pos.0 += offset.0;
         pos.1 += offset.1;
@@ -468,7 +514,7 @@ impl Plotter {
             text.as_ref(),
             &TextStyle {
                 font: (&self.font).into(),
-                color: BackendColor{ alpha: 1., rgb: (GREY.0, GREY.1, GREY.2) },
+                color: col.to_backend_color(),
                 pos: align
             },
             pos,
@@ -562,6 +608,14 @@ impl Plotter {
         );
     }
 
+
+    fn get_particle_colour(&self, pid: i32) -> RGBAColor {
+        let col = self.colour.particles.get(
+            &pid.abs()
+        ).unwrap_or(&egui::Color32::GRAY);
+        to_plotters_col(*col)
+    }
+
     fn draw_particle_at<DB, X, Y>(
         &self,
         root: & DrawingArea<DB, Shift>,
@@ -574,7 +628,8 @@ impl Plotter {
         X: Ranged<ValueType = f64>,
         Y: Ranged<ValueType = f64>,
     {
-        let col = colour(particle_id.abs());
+        let fill_col = self.get_particle_colour(particle_id.abs());
+        let frame_col = to_plotters_col(self.colour.frame);
         match spin_type(particle_id) {
             SpinType::Boson => {
                 let coord = chart.backend_coord(&centre);
@@ -582,13 +637,13 @@ impl Plotter {
                     &Circle::new(
                         coord,
                         CIRCLE_SIZE,
-                        Into::<ShapeStyle>::into(&col).filled(),
+                        Into::<ShapeStyle>::into(&fill_col).filled(),
                     )).unwrap();
                 root.draw(
                     &Circle::new(
                         coord,
                         CIRCLE_SIZE,
-                        Into::<ShapeStyle>::into(&GREY),
+                        Into::<ShapeStyle>::into(&frame_col),
                     )).unwrap();
             },
             SpinType::Fermion => {
@@ -600,12 +655,12 @@ impl Plotter {
                 root.draw(
                     &Rectangle::new(
                         coord,
-                        Into::<ShapeStyle>::into(&col).filled(),
+                        Into::<ShapeStyle>::into(&fill_col).filled(),
                     )).unwrap();
                 root.draw(
                     &Rectangle::new(
                         coord,
-                        Into::<ShapeStyle>::into(&GREY),
+                        Into::<ShapeStyle>::into(&frame_col),
                     )).unwrap();
             },
             _ => panic!("Cannot draw particle with type {}", particle_id)
@@ -793,4 +848,9 @@ pub fn colour(id: i32) -> PaletteColor<Palette99> {
         25 => Palette99::pick(16),
         _  => Palette99::pick(20),
     }
+}
+
+fn to_plotters_col(col: egui::Color32) -> RGBAColor {
+    let (r,g,b,a) = col.to_tuple();
+    RGBColor(r, g, b).mix((a as f64) / (u8::MAX as f64))
 }

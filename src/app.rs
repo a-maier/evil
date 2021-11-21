@@ -1,8 +1,10 @@
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::default::Default;
 use std::ops::Range;
 use std::string::ToString;
 
+use crate::particle::particle_name;
 use crate::image::Image;
 use crate::event::Event;
 use crate::font::{FontFamily, FontStyle};
@@ -270,10 +272,11 @@ impl App {
         eframe::egui::Window::new("Plotting")
             .open(&mut self.plotter_settings_open)
             .show(ctx, |ui| {
-                ui.horizontal(
-                    |ui| {
-                        changed |= font_settings_changed(ui, plotter, font_names);
-                    });
+                changed |= font_settings_changed(ui, plotter, font_names);
+
+                ui.separator();
+
+                changed |= colour_settings_changed(ui, &mut plotter.colour);
             });
         changed
     }
@@ -326,6 +329,7 @@ impl App {
                         self.plotter_settings_open = true;
                     }
                 });
+                dark_light_mode_switch(ui);
             });
         });
     }
@@ -338,62 +342,144 @@ fn font_settings_changed(
     font_names: &[String]
 ) -> bool {
     let mut changed = false;
-    use FontFamily::*;
-    let old_family = match &plotter.font.family {
-        Serif => "serif",
-        SansSerif => "sans serif",
-        Monospace => "monospace",
-        Name(s) => s.as_str(),
-    };
-    let mut family = old_family.to_string();
-    ui.label("Font");
-    eframe::egui::ComboBox::from_id_source(0)
-        .width(150.)
-        .selected_text(&family)
-        .show_ui(ui, |ui| {
-            ui.selectable_value(&mut family, "serif".to_string(), "serif");
-            ui.selectable_value(&mut family, "sans serif".to_string(), "sans serif");
-            ui.selectable_value(&mut family, "monospace".to_string(), "monospace");
-            for name in font_names {
-                ui.selectable_value(&mut family, name.to_string(), name);
+    ui.horizontal(
+        |ui| {
+            use FontFamily::*;
+            let old_family = match &plotter.font.family {
+                Serif => "serif",
+                SansSerif => "sans serif",
+                Monospace => "monospace",
+                Name(s) => s.as_str(),
+            };
+            let mut family = old_family.to_string();
+            ui.label("Font");
+            eframe::egui::ComboBox::from_id_source(0)
+                .width(150.)
+                .selected_text(&family)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut family, "serif".to_string(), "serif");
+                    ui.selectable_value(&mut family, "sans serif".to_string(), "sans serif");
+                    ui.selectable_value(&mut family, "monospace".to_string(), "monospace");
+                    for name in font_names {
+                        ui.selectable_value(&mut family, name.to_string(), name);
+                    }
+                });
+
+            if family != old_family {
+                plotter.font.family = match family.as_str() {
+                    "serif"       => Serif     ,
+                    "sans serif"  => SansSerif ,
+                    "monospace"   => Monospace ,
+                    s    => Name(s.to_string())   ,
+                };
+                changed = true;
+            }
+
+            use FontStyle::*;
+            let mut style = plotter.font.style;
+            eframe::egui::ComboBox::from_id_source(1)
+                .width(70.)
+                .selected_text(style.to_string())
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut style, Normal, "Normal");
+                    ui.selectable_value(&mut style, Oblique, "Oblique");
+                    ui.selectable_value(&mut style, Italic, "Italic");
+                    ui.selectable_value(&mut style, Bold, "Bold");
+                });
+            if style != plotter.font.style {
+                plotter.font.style = style;
+                changed = true;
+            }
+
+            let mut size = plotter.font.size;
+            ui.add(
+                eframe::egui::DragValue::new(&mut size)
+                    .clamp_range(0.0..=f64::MAX)
+            );
+            if size != plotter.font.size {
+                plotter.font.size = size;
+                changed = true;
             }
         });
+    changed
+}
 
-    if family != old_family {
-        plotter.font.family = match family.as_str() {
-            "serif"       => Serif     ,
-            "sans serif"  => SansSerif ,
-            "monospace"   => Monospace ,
-            s    => Name(s.to_string())   ,
-        };
-        changed = true;
-    }
-
-    use FontStyle::*;
-    let mut style = plotter.font.style;
-    eframe::egui::ComboBox::from_id_source(1)
-        .width(70.)
-        .selected_text(style.to_string())
-        .show_ui(ui, |ui| {
-            ui.selectable_value(&mut style, Normal, "Normal");
-            ui.selectable_value(&mut style, Oblique, "Oblique");
-            ui.selectable_value(&mut style, Italic, "Italic");
-            ui.selectable_value(&mut style, Bold, "Bold");
-        });
-    if style != plotter.font.style {
-        plotter.font.style = style;
-        changed = true;
-    }
-
-    let mut size = plotter.font.size;
-    ui.add(
-        eframe::egui::DragValue::new(&mut size)
-            .clamp_range(0.0..=f64::MAX)
+fn particle_colour_changed(
+    ui: &mut egui::Ui,
+    col_mapping: &mut HashMap<i32, egui::Color32>,
+    pid: i32,
+) -> bool {
+    let mut changed = false;
+    ui.horizontal(
+        |ui| {
+            let mut col = *col_mapping.get(&pid).unwrap();
+            changed = ui.color_edit_button_srgba(&mut col).changed();
+            if changed {
+                *col_mapping.get_mut(&pid).unwrap() = col;
+            }
+            ui.label(particle_name(pid));
+        }
     );
-    if size != plotter.font.size {
-        plotter.font.size = size;
-        changed = true;
-    }
+    changed
+}
+
+fn colour_settings_changed(
+    ui: &mut egui::Ui,
+    colours: &mut crate::plotter::ColourSettings,
+) -> bool {
+    let mut changed = false;
+    ui.label("Colours");
+    ui.horizontal(
+        |ui| {
+            ui.label("Frame");
+            changed |= ui.color_edit_button_srgba(&mut colours.frame).changed();
+            ui.label("Background");
+            changed |= ui.color_edit_button_srgba(&mut colours.background).changed();
+        }
+    );
+    let particle_cols = &mut colours.particles;
+    ui.columns(
+        4, |col| {
+            col[0].with_layout(
+                egui::Layout::top_down_justified(egui::Align::RIGHT),
+                |ui| {
+                    changed |= particle_colour_changed(ui, particle_cols, 2);
+                    changed |= particle_colour_changed(ui, particle_cols, 1);
+                    changed |= particle_colour_changed(ui, particle_cols, 12);
+                    changed |= particle_colour_changed(ui, particle_cols, 11);
+                }
+            );
+            col[1].with_layout(
+                egui::Layout::top_down_justified(egui::Align::RIGHT),
+                |ui| {
+                    changed |= particle_colour_changed(ui, particle_cols, 4);
+                    changed |= particle_colour_changed(ui, particle_cols, 3);
+                    changed |= particle_colour_changed(ui, particle_cols, 14);
+                    changed |= particle_colour_changed(ui, particle_cols, 13);
+                }
+            );
+            col[2].with_layout(
+                egui::Layout::top_down_justified(egui::Align::RIGHT),
+                |ui| {
+                    changed |= particle_colour_changed(ui, particle_cols, 6);
+                    changed |= particle_colour_changed(ui, particle_cols, 5);
+                    changed |= particle_colour_changed(ui, particle_cols, 16);
+                    changed |= particle_colour_changed(ui, particle_cols, 15);
+                }
+            );
+            col[3].with_layout(
+                egui::Layout::top_down_justified(egui::Align::RIGHT),
+                |ui| {
+                    changed |= particle_colour_changed(ui, particle_cols, 21);
+                    changed |= particle_colour_changed(ui, particle_cols, 22);
+                    changed |= particle_colour_changed(ui, particle_cols, 23);
+                    changed |= particle_colour_changed(ui, particle_cols, 24);
+                    changed |= particle_colour_changed(ui, particle_cols, 25);
+                }
+            );
+        }
+    );
+
     changed
 }
 
@@ -426,6 +512,7 @@ impl eframe::epi::App for App {
         self.handle_keys(ctx.input(), frame);
 
         self.draw_menu_panel(ctx, frame);
+
 
         if !self.events.is_empty() {
             self.draw_bottom_panel(ctx, frame);
@@ -487,5 +574,14 @@ impl eframe::epi::App for App {
         if let Err(err) = confy::store("evil", &cfg) {
             error!("Failed to save config: {}", err);
         }
+    }
+}
+
+// taken from egui demo app
+fn dark_light_mode_switch(ui: &mut egui::Ui) {
+    let style: egui::Style = (*ui.ctx().style()).clone();
+    let new_visuals = style.visuals.light_dark_small_toggle_button(ui);
+    if let Some(visuals) = new_visuals {
+        ui.ctx().set_visuals(visuals);
     }
 }
