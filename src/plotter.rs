@@ -196,6 +196,7 @@ impl Plotter {
             .disable_mesh()
             .x_labels(0)
             .y_labels(0)
+            .axis_style(to_plotters_col(self.colour.frame))
             .draw()?;
 
         self.dress_rap_axis(&root, &mut chart);
@@ -254,6 +255,7 @@ impl Plotter {
             .disable_mesh()
             .x_labels(0)
             .y_labels(0)
+            .axis_style(to_plotters_col(self.colour.frame))
             .draw()?;
 
         self.dress_rap_axis(&root, &mut chart);
