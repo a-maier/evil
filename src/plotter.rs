@@ -38,7 +38,9 @@ const N_MINOR_PHI_TICKS: usize = 3;
 
 const X_AXIS_LABEL_OFFSET: i32 = 50;
 const Y_AXIS_LABEL_OFFSET: i32 = 60;
+const Y_AXIS_LABEL_OFFSET_LOGPT: i32 = 80;
 const TICK_LABEL_OFFSET: i32 = 10;
+const TICK_LABEL_OFFSET_LOGPT: i32 = 20;
 
 const BOX_CORNER: (i32, i32) = (5, 5);
 const CIRCLE_SIZE: i32 = 5;
@@ -48,6 +50,8 @@ const LEGEND_START_REL: f64 = 0.95;
 const LEGEND_REL_STEP: f64 = 0.05;
 
 pub const GREY: RGBColor = RGBColor(130, 130, 130);
+
+pub const REL_SUB_FONT_SIZE: f64 = 0.6;
 
 lazy_static!{
     static ref CYAN: egui::Color32 = egui::Color32::from_rgb(0, 159, 223);
@@ -242,7 +246,7 @@ impl Plotter {
         let mut chart = ChartBuilder::on(&root)
             .margin(5)
             .set_all_label_area_size(5)
-            .set_label_area_size(LabelAreaPosition::Left, 80)
+            .set_label_area_size(LabelAreaPosition::Left, 110)
             .set_label_area_size(LabelAreaPosition::Bottom, 80)
             .build_cartesian_2d(Y_AXIS_MIN..Y_AXIS_MAX, logpt_start..logpt_end)?;
 
@@ -559,26 +563,51 @@ impl Plotter {
     {
         range.end += 1;
         self.draw_logpt_ticks(root, &mut chart, range.clone());
+        let col = to_plotters_col(self.colour.frame);
+        let align = Pos{ h_pos: HPos::Right, v_pos: VPos::Center };
+        let style = TextStyle {
+            font: (&self.font).into(),
+            color: col.to_backend_color(),
+            pos: align
+        };
+        let sup_style = TextStyle {
+            font: style.font.resize(REL_SUB_FONT_SIZE * self.font.size),
+            color: style.color.clone(),
+            pos: align
+        };
+        // TODO: how to calculate this properly?
+        let s = self.font.size as i32;
         for logpt in range {
-            let logpt = logpt as f64;
-            self.draw_text(
-                &root,
-                &chart,
-                // TODO: proper superscript
-                format!("10^{}", logpt),
-                (Y_AXIS_MIN, logpt),
-                ( - TICK_LABEL_OFFSET, 0),
-                Pos{ h_pos: HPos::Right, v_pos: VPos::Center }
-            );
+            let sup_pos = if logpt < 0 {
+                (s / 3, -(s / 4))
+            } else {
+                (s / 10, -(s / 4))
+            };
+            let pos = (Y_AXIS_MIN, logpt as f64);
+            let offset = ( - TICK_LABEL_OFFSET_LOGPT, 0);
+            let mut pos = chart.backend_coord(&pos);
+            pos.0 += offset.0;
+            pos.1 += offset.1;
+            root.draw(
+                &(
+                    EmptyElement::at(pos)
+                        + Text::new("10", (-s / 4, 0), &style)
+                        + Text::new(logpt.to_string(), sup_pos, &sup_style)
+                )
+            ).unwrap()
         }
         let y_range = chart.y_range();
-        self.draw_text(
-            &root, &chart,
-            "pt",
-            (Y_AXIS_MIN, (y_range.start + y_range.end) / 2.),
-            ( - Y_AXIS_LABEL_OFFSET, 0),
-            Pos{ h_pos: HPos::Right, v_pos: VPos::Center }
-        );
+
+        let pos = (Y_AXIS_MIN, (y_range.start + y_range.end) / 2.);
+        let offset = ( - Y_AXIS_LABEL_OFFSET_LOGPT, 0);
+        let pos = add(chart.backend_coord(&pos), offset);
+        root.draw(
+            &(
+                EmptyElement::at(pos)
+                    + Text::new("p", (-s / 4, 0), &style)
+                    + Text::new("T", (s / 10, s / 4), &sup_style)
+            )
+        ).unwrap()
     }
 
     fn dress_rap_axis<DB, X, Y>(
