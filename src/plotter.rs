@@ -18,7 +18,6 @@ use plotters::style::{
     RGBAColor,
     text_anchor::{HPos, Pos, VPos}
 };
-use plotters_backend::BackendColor;
 use log::{debug};
 use serde::{Deserialize, Serialize};
 
@@ -515,9 +514,7 @@ impl Plotter {
         Y: Ranged<ValueType = f64>,
     {
         let col = to_plotters_col(self.colour.frame);
-        let mut pos = chart.backend_coord(&pos);
-        pos.0 += offset.0;
-        pos.1 += offset.1;
+        let pos = add(chart.backend_coord(&pos), offset);
         root.draw_text(
             text.as_ref(),
             &TextStyle {
@@ -859,28 +856,6 @@ fn add<T: std::ops::Add>(t1: (T, T), t2: (T, T)) -> (T::Output, T::Output) {
 
 fn sub<T: std::ops::Sub>(t1: (T, T), t2: (T, T)) -> (T::Output, T::Output) {
     (t1.0 - t2.0, t1.1 - t2.1)
-}
-
-pub fn colour(id: i32) -> PaletteColor<Palette99> {
-    match id {
-        1  => Palette99::pick(0),
-        2  => Palette99::pick(1),
-        3  => Palette99::pick(2),
-        4  => Palette99::pick(3),
-        5  => Palette99::pick(4),
-        11 => Palette99::pick(5),
-        12 => Palette99::pick(6),
-        13 => Palette99::pick(7),
-        14 => Palette99::pick(8),
-        15 => Palette99::pick(9),
-        16 => Palette99::pick(10),
-        21 => Palette99::pick(11),
-        22 => Palette99::pick(12),
-        23 => Palette99::pick(13),
-        24 => Palette99::pick(15),
-        25 => Palette99::pick(16),
-        _  => Palette99::pick(20),
-    }
 }
 
 fn to_plotters_col(col: egui::Color32) -> RGBAColor {
