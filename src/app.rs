@@ -272,60 +272,7 @@ impl App {
             .show(ctx, |ui| {
                 ui.horizontal(
                     |ui| {
-                        use FontFamily::*;
-                        let old_family = match &plotter.font.family {
-                            Serif => "serif",
-                            SansSerif => "sans serif",
-                            Monospace => "monospace",
-                            Name(s) => s.as_str(),
-                        };
-                        let mut family = old_family.to_string();
-                        ui.label("Font");
-                        eframe::egui::ComboBox::from_id_source(0)
-                            .selected_text(&family)
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut family, "serif".to_string(), "serif");
-                                ui.selectable_value(&mut family, "sans serif".to_string(), "sans serif");
-                                ui.selectable_value(&mut family, "monospace".to_string(), "monospace");
-                                for name in  font_names {
-                                    ui.selectable_value(&mut family, name.to_string(), name);
-                                }
-                            });
-
-                        if family != old_family {
-                            plotter.font.family = match family.as_str() {
-                                "serif"       => Serif     ,
-                                "sans serif"  => SansSerif ,
-                                "monospace"   => Monospace ,
-                                s    => Name(s.to_string())   ,
-                            };
-                            changed = true;
-                        }
-
-                        use FontStyle::*;
-                        let mut style = plotter.font.style;
-                        eframe::egui::ComboBox::from_id_source(1)
-                            .selected_text(style.to_string())
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut style, Normal, "Normal");
-                                ui.selectable_value(&mut style, Oblique, "Oblique");
-                                ui.selectable_value(&mut style, Italic, "Italic");
-                                ui.selectable_value(&mut style, Bold, "Bold");
-                            });
-                        if style != plotter.font.style {
-                            plotter.font.style = style;
-                            changed = true;
-                        }
-
-                        let mut size = plotter.font.size;
-                        ui.add(
-                            eframe::egui::DragValue::new(&mut size)
-                                .clamp_range(0.0..=f64::MAX)
-                        );
-                        if size != plotter.font.size {
-                            plotter.font.size = size;
-                            changed = true;
-                        }
+                        changed |= font_settings_changed(ui, plotter, font_names);
                     });
             });
         changed
@@ -384,6 +331,72 @@ impl App {
     }
 
 }
+
+fn font_settings_changed(
+    ui: &mut egui::Ui,
+    plotter: &mut Plotter,
+    font_names: &[String]
+) -> bool {
+    let mut changed = false;
+    use FontFamily::*;
+    let old_family = match &plotter.font.family {
+        Serif => "serif",
+        SansSerif => "sans serif",
+        Monospace => "monospace",
+        Name(s) => s.as_str(),
+    };
+    let mut family = old_family.to_string();
+    ui.label("Font");
+    eframe::egui::ComboBox::from_id_source(0)
+        .width(150.)
+        .selected_text(&family)
+        .show_ui(ui, |ui| {
+            ui.selectable_value(&mut family, "serif".to_string(), "serif");
+            ui.selectable_value(&mut family, "sans serif".to_string(), "sans serif");
+            ui.selectable_value(&mut family, "monospace".to_string(), "monospace");
+            for name in font_names {
+                ui.selectable_value(&mut family, name.to_string(), name);
+            }
+        });
+
+    if family != old_family {
+        plotter.font.family = match family.as_str() {
+            "serif"       => Serif     ,
+            "sans serif"  => SansSerif ,
+            "monospace"   => Monospace ,
+            s    => Name(s.to_string())   ,
+        };
+        changed = true;
+    }
+
+    use FontStyle::*;
+    let mut style = plotter.font.style;
+    eframe::egui::ComboBox::from_id_source(1)
+        .width(70.)
+        .selected_text(style.to_string())
+        .show_ui(ui, |ui| {
+            ui.selectable_value(&mut style, Normal, "Normal");
+            ui.selectable_value(&mut style, Oblique, "Oblique");
+            ui.selectable_value(&mut style, Italic, "Italic");
+            ui.selectable_value(&mut style, Bold, "Bold");
+        });
+    if style != plotter.font.style {
+        plotter.font.style = style;
+        changed = true;
+    }
+
+    let mut size = plotter.font.size;
+    ui.add(
+        eframe::egui::DragValue::new(&mut size)
+            .clamp_range(0.0..=f64::MAX)
+    );
+    if size != plotter.font.size {
+        plotter.font.size = size;
+        changed = true;
+    }
+    changed
+}
+
 
 impl eframe::epi::App for App {
     fn name(&self) -> &str {
