@@ -430,9 +430,11 @@ impl Plotter {
             self.draw_ticks(root, chart, major_tick_pos, MAJOR_TICK_SIZE, align);
             let mut range = range.clone();
             range.end += 1;
+            let y_range = chart.y_range();
             let minor_tick_pos = range.into_iter().map(
                 |pos| (1..10).map(move |step| pos as f64 + (step as f64).log10() - 1.)
-            ).flatten();
+            ).flatten()
+                .filter(|pos| y_range.contains(pos));
             self.draw_ticks(root, chart, minor_tick_pos, MINOR_TICK_SIZE, align);
         }
     }
