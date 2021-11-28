@@ -7,6 +7,15 @@ pub struct Particle {
 }
 
 impl Particle {
+    pub fn new(id: i32, p: &[f64; 4]) -> Self {
+        Particle {
+            id,
+            y: y(&p),
+            phi: phi(&p),
+            pt: pt(&p)
+        }
+    }
+
     pub fn spin_type(&self) -> SpinType {
         spin_type(self.id)
     }
@@ -74,4 +83,20 @@ pub enum SpinType {
     Boson,
     Fermion,
     Unknown,
+}
+
+fn y(p: &[f64; 4]) -> f64 {
+    (p[3] / p[0]).atanh()
+}
+
+fn phi(p: &[f64; 4]) -> f64 {
+    p[1].atan2(p[2])
+}
+
+fn pt2(p: &[f64; 4]) -> f64 {
+    p[1] * p[1] + p[2] * p[2]
+}
+
+fn pt(p: &[f64; 4]) -> f64 {
+    pt2(p).sqrt()
 }
