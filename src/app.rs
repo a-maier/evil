@@ -150,6 +150,7 @@ impl App {
     fn update_ev(&mut self, ev_idx: usize, allocator: &mut dyn eframe::epi::TextureAllocator) {
         self.cur_ev_idx = ev_idx;
         self.ev_idx_str = format!("{}", ev_idx + 1);
+        self.ev_idx_str_col = None;
         self.update_img(allocator);
     }
 
@@ -297,7 +298,6 @@ impl App {
                     match self.ev_idx_str.parse::<usize>() {
                         Ok(ev_idx) if ev_idx > 0 && ev_idx <= self.events.len() => {
                             self.update_ev(ev_idx - 1, frame.tex_allocator());
-                            self.ev_idx_str_col = None;
                         },
                         _ => {
                             self.ev_idx_str_col = Some(eframe::egui::Color32::RED);
