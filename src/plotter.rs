@@ -139,6 +139,30 @@ impl Default for ColourSettings {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Debug, Deserialize, Serialize)]
+pub struct Projection {
+    pub yaw: f64,
+    pub pitch: f64,
+    pub scale: f64,
+}
+
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
+pub struct Settings3D {
+    pub projection: Projection,
+}
+
+impl Default for Settings3D {
+    fn default() -> Self {
+        Self {
+            projection: Projection {
+                pitch: 0.0,
+                yaw: 1.0,
+                scale: 1.0,
+            }
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Debug, Default, Deserialize, Serialize)]
 pub struct Plotter {
     pub r_jet: f64,
@@ -146,6 +170,7 @@ pub struct Plotter {
     pub font: Font,
 
     pub colour: ColourSettings,
+    pub settings_3d: Settings3D,
 }
 
 impl Plotter {
@@ -174,6 +199,16 @@ impl Plotter {
         Ok(plot)
     }
 
+    pub fn plot_3d(
+        &self,
+        event: &Event,
+        jets: &[PseudoJet]
+    ) -> Result<String> {
+        let mut plot = String::new();
+        self.plot_3d_to(event, jets, &mut plot)?;
+        Ok(plot)
+    }
+
     pub fn plot_y_phi_to(
         &self,
         event: &Event,
@@ -181,7 +216,7 @@ impl Plotter {
         result: &mut String
     ) -> Result<()> {
 
-        let root = SVGBackend::with_string(result, (1024, 768)).into_drawing_area();
+        let root = SVGBackend::with_string(result, (1280, 960)).into_drawing_area();
         root.fill(&to_plotters_col(self.colour.background))?;
         //let root = root.margin(10, 10, 10, 10);
         let mut chart = ChartBuilder::on(&root)
@@ -238,7 +273,7 @@ impl Plotter {
         result: &mut String
     ) -> Result<()> {
 
-        let root = SVGBackend::with_string(result, (1024, 768)).into_drawing_area();
+        let root = SVGBackend::with_string(result, (1280, 960)).into_drawing_area();
         root.fill(&to_plotters_col(self.colour.background))?;
         // let root = root.margin(10, 10, 10, 10);
         let logpt_start = logpt_range.start - 0.05 * logpt_range.start.abs();
@@ -285,6 +320,72 @@ impl Plotter {
             );
 
             pos.1 -= LEGEND_REL_STEP * y_size;
+        }
+
+        Ok(())
+    }
+
+    pub fn plot_3d_to(
+        &self,
+        event: &Event,
+        _jets: &[PseudoJet],
+        result: &mut String
+    ) -> Result<()> {
+
+        let root = SVGBackend::with_string(result, (2*1280, 960)).into_drawing_area();
+        root.fill(&to_plotters_col(self.colour.background))?;
+        // let root = root.margin(10, 10, 10, 10);
+        let range = (-1.0..1.0).step(0.1);
+        let mut chart = ChartBuilder::on(&root)
+            .margin(5)
+            .set_all_label_area_size(5)
+            .set_label_area_size(LabelAreaPosition::Left, 110)
+            .set_label_area_size(LabelAreaPosition::Bottom, 80)
+            .build_cartesian_3d(range.clone(), range.clone(), range.clone())?;
+
+        chart.with_projection(|mut pb| {
+            pb.pitch = self.settings_3d.projection.pitch;
+            pb.yaw = self.settings_3d.projection.yaw;
+            pb.scale = self.settings_3d.projection.scale;
+            pb.into_matrix()
+        });
+
+        const R: f64 = 0.5;
+        const L: f64 = 0.5;
+        for z in [-L, L] {
+            chart.draw_series(LineSeries::new(
+                (0..=100).map(
+                    |t| {
+                        let phi = 2.*PI*(t as f64) /  100.;
+                        (R*phi.cos(), R*phi.sin(), z)
+                    }
+                ),
+                &to_plotters_col(self.colour.frame),
+            ))?;
+        }
+        chart.draw_series(LineSeries::new(
+            (-1..=1).map(|t| {
+                let t = t as f64;
+                (R, 0., L*t)
+            }),
+            &to_plotters_col(self.colour.frame),
+        ))?;
+
+        for out in &event.out {
+            let mut coord = [out.p[1], out.p[2], out.p[3]];
+            for c in &mut coord {
+                *c = 2./PI*c.atan()
+            }
+
+            chart.draw_series(LineSeries::new(
+                (0..=1).map(
+                    |t| {
+                        let t = t as f64;
+                        (t*coord[0], t*coord[1], t*coord[2])
+                    }
+                ),
+                &self.get_particle_colour(out.id),
+            ))?;
         }
 
         Ok(())

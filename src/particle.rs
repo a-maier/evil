@@ -1,15 +1,17 @@
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct Particle {
     pub id: i32,
+    pub p: [f64; 4],
     pub y: f64,
     pub phi: f64,
     pub pt: f64,
 }
 
 impl Particle {
-    pub fn new(id: i32, p: &[f64; 4]) -> Self {
+    pub fn new(id: i32, p: [f64; 4]) -> Self {
         Particle {
             id,
+            p,
             y: y(&p),
             phi: phi(&p),
             pt: pt(&p)

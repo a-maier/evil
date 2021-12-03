@@ -60,6 +60,12 @@ pub struct App {
     y_logpt_id: eframe::egui::TextureId,
 
     #[serde(skip)]
+    plot_3d: Image,
+
+    #[serde(skip)]
+    plot_3d_id: eframe::egui::TextureId,
+
+    #[serde(skip)]
     first_draw: bool,
 
     #[serde(skip)]
@@ -123,18 +129,22 @@ impl App {
 
         let y_phi;
         let y_logpt;
+        let plot_3d;
         if let Some(event) = self.events.first() {
             let jets = self.cluster_jets(&event);
             y_phi = self.plotter.plot_y_phi(event, &jets);
             y_logpt = self.plotter.plot_y_logpt(event, &jets, self.lpt_range.clone());
+            plot_3d = self.plotter.plot_3d(event, &jets);
         } else {
             let ev = Event::default();
             y_phi = self.plotter.plot_y_phi(&ev, &[]);
             y_logpt = self.plotter.plot_y_logpt(&ev, &[], self.lpt_range.clone());
+            plot_3d = self.plotter.plot_3d(&ev, &[]);
         };
 
         self.y_phi = Image::new(y_phi.unwrap(), (640, 480));
         self.y_logpt = Image::new(y_logpt.unwrap(), (640, 480));
+        self.plot_3d = Image::new(plot_3d.unwrap(), (2*640, 480));
 
         self
     }
@@ -174,6 +184,16 @@ impl App {
         allocator.free(self.y_logpt_id);
         self.y_logpt_id = allocator
             .alloc_srgba_premultiplied(self.y_logpt.size(), &self.y_logpt.pixels());
+
+
+        let svg = self.plotter.plot_3d(
+            event,
+            &jets,
+        ).unwrap();
+        self.plot_3d = Image::new(svg, (2*1280, 960));
+        allocator.free(self.plot_3d_id);
+        self.plot_3d_id = allocator
+            .alloc_srgba_premultiplied(self.plot_3d.size(), &self.plot_3d.pixels());
     }
 
     fn prev_img(&mut self, frame: &mut eframe::epi::Frame<'_>) {
@@ -529,6 +549,9 @@ impl eframe::epi::App for App {
             self.y_logpt_id = frame
                 .tex_allocator()
                 .alloc_srgba_premultiplied((640, 480), &self.y_logpt.pixels());
+            self.plot_3d_id = frame
+                .tex_allocator()
+                .alloc_srgba_premultiplied((2*640, 480), &self.plot_3d.pixels());
             self.first_draw = false;
         }
 
@@ -551,6 +574,10 @@ impl eframe::epi::App for App {
                     |ui| ui.image(self.y_logpt_id, [plot_width, img_height])
                 );
             });
+            ui.vertical_centered(
+                |ui| ui.image(self.plot_3d_id, [2.0*plot_width, img_height])
+            );
+
             eframe::egui::warn_if_debug_build(ui);
         });
 

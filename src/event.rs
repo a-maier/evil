@@ -18,7 +18,7 @@ impl From<&hepmc2::event::Event> for Event {
             .flatten()
             .map(
                 |out| {
-                    Particle::new(out.id, &out.p.0)
+                    Particle::new(out.id, out.p.0)
                 }
             )
             .collect();
@@ -33,7 +33,7 @@ impl From<&lhef::HEPEUP> for Event {
             .filter_map(
                 |(n, p)| if event.ISTUP[n] == OUTGOING_STATUS {
                     let p = [p[3], p[0], p[1], p[2]];
-                    Some(Particle::new(event.IDUP[n], &p))
+                    Some(Particle::new(event.IDUP[n], p))
                 } else {
                     None
                 }
