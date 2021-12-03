@@ -391,15 +391,10 @@ fn font_settings_changed(
                 changed = true;
             }
 
-            let mut size = plotter.font.size;
-            ui.add(
-                eframe::egui::DragValue::new(&mut size)
+            changed |= ui.add(
+                eframe::egui::DragValue::new(&mut plotter.font.size)
                     .clamp_range(0.0..=f64::MAX)
-            );
-            if size != plotter.font.size {
-                plotter.font.size = size;
-                changed = true;
-            }
+            ).changed();
         });
     changed
 }
