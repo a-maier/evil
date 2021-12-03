@@ -285,13 +285,14 @@ impl App {
     fn draw_bottom_panel(&mut self, ctx: &eframe::egui::CtxRef, frame: &mut eframe::epi::Frame<'_>) {
         eframe::egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             // TODO: this doesn't work
-            // ui.vertical_centered_justified(|ui| {
-            eframe::egui::Grid::new("bottom_panel_grid").show(ui, |ui| {
+            ui.columns(3, |col| col[1].horizontal(|ui| {
                 if ui.add(eframe::egui::Button::new("<-")).clicked() {
                     self.prev_img(frame)
                 }
+                let width = 10. * (std::cmp::max(self.events.len(), 10) as f32).log10();
                 let response = ui.add(
                     eframe::egui::TextEdit::singleline(&mut self.ev_idx_str)
+                        .desired_width(width)
                         .text_color_opt(self.ev_idx_str_col)
                 );
                 if response.changed() {
@@ -308,8 +309,7 @@ impl App {
                 if ui.add(eframe::egui::Button::new("->")).clicked() {
                     self.next_img(frame)
                 }
-            })
-            // })
+            }))
         });
     }
 
