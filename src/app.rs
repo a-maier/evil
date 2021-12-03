@@ -435,6 +435,8 @@ fn colour_settings_changed(
             changed |= ui.color_edit_button_srgba(&mut colours.frame).changed();
             ui.label("Background");
             changed |= ui.color_edit_button_srgba(&mut colours.background).changed();
+            ui.label("Jets");
+            changed |= ui.color_edit_button_srgba(&mut colours.jets).changed();
         }
     );
     let particle_cols = &mut colours.particles;

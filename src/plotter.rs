@@ -48,8 +48,6 @@ const LEGEND_X_POS: f64 = 4.;
 const LEGEND_START_REL: f64 = 0.95;
 const LEGEND_REL_STEP: f64 = 0.05;
 
-pub const GREY: RGBColor = RGBColor(130, 130, 130);
-
 pub const REL_SUB_FONT_SIZE: f64 = 0.6;
 
 lazy_static!{
@@ -108,7 +106,8 @@ lazy_static!(
 pub struct ColourSettings {
     pub frame: egui::Color32,
     pub background: egui::Color32,
-    pub particles: HashMap<i32, egui::Color32>
+    pub particles: HashMap<i32, egui::Color32>,
+    pub jets: egui::Color32,
 }
 
 impl Default for ColourSettings {
@@ -134,7 +133,8 @@ impl Default for ColourSettings {
                 (23, egui::Color32::RED),
                 (24, egui::Color32::DARK_GREEN),
                 (25, egui::Color32::WHITE),
-            ])
+            ]),
+            jets: egui::Color32::from_rgba_premultiplied(130, 130, 130, 80),
         }
     }
 }
@@ -713,6 +713,35 @@ impl Plotter {
         self.draw_particle_at(&root, &chart, particle.id, centre);
     }
 
+    fn draw_jet_circle<DB, X, Y>(
+        &self,
+        chart: & mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
+        centre: (f64, f64)
+    )
+    where
+        DB: DrawingBackend,
+        X: Ranged<ValueType = f64>,
+        Y: Ranged<ValueType = f64>,
+    {
+        let jet_col = to_plotters_col(self.colour.jets);
+        chart.draw_series(
+            AreaSeries::new(
+                (0..101).map(
+                    |x| {
+                        let x = x as f64;
+                        let phi = x*2.*PI / 100.;
+                        (
+                            y_to_coord(centre.0 + self.r_jet*phi.cos()),
+                            centre.1 + self.r_jet*phi.sin()
+                        )
+                    }
+                ),
+                0.,
+                ShapeStyle::from(jet_col).filled()
+            )
+        ).unwrap();
+    }
+
     fn draw_y_phi_jet<DB, X, Y>(
         &self,
         _root: & DrawingArea<DB, Shift>,
@@ -730,50 +759,13 @@ impl Plotter {
         }
         debug!("Drawing jet with radius {} at (y, φ) = ({}, {})", self.r_jet, jet.rap(), phi);
         let centre = (y_to_coord(jet.rap().into()), phi);
-        chart.draw_series(
-            AreaSeries::new(
-                (0..101).map(
-                    |x| {
-                        let x = x as f64;
-                        let phi = x*2.*PI / 100.;
-                        (y_to_coord(centre.0 + self.r_jet*phi.cos()), centre.1 + self.r_jet*phi.sin())
-                    }
-                ),
-                0.,
-                ShapeStyle::from(GREY.mix(0.3)).filled(),
-            )
-        ).unwrap();
+        self.draw_jet_circle(chart, centre);
         if centre.1 - self.r_jet < - PI {
-            chart.draw_series(
-                AreaSeries::new(
-                    (0..101).map(
-                        |x| {
-                            let x = x as f64;
-                            let phi = x*2.*PI / 100.;
-                            (y_to_coord(centre.0 + self.r_jet*phi.cos()), centre.1 + self.r_jet*phi.sin() + 2.*PI)
-                        }
-                    ),
-                    0.,
-                    ShapeStyle::from(GREY.mix(0.3)).filled(),
-                )
-            ).unwrap();
+            self.draw_jet_circle(chart, (centre.0, centre.1 + 2.*PI));
         }
         if centre.1 + self.r_jet > PI {
-            chart.draw_series(
-                AreaSeries::new(
-                    (0..101).map(
-                        |x| {
-                            let x = x as f64;
-                            let phi = x*2.*PI / 100.;
-                            (y_to_coord(centre.0 + self.r_jet*phi.cos()), centre.1 + self.r_jet*phi.sin() - 2.*PI)
-                        }
-                    ),
-                    0.,
-                    ShapeStyle::from(GREY.mix(0.3)).filled(),
-                )
-            ).unwrap();
+            self.draw_jet_circle(chart, (centre.0, centre.1 - 2.*PI));
         }
-
     }
 
     fn draw_y_logpt<DB, X, Y>(
@@ -805,6 +797,7 @@ impl Plotter {
     {
         debug!("Drawing jet at (y, log(pt)) = ({}, {})", jet.rap(), jet.pt2().log10()/2.);
         let centre = (y_to_coord(jet.rap().into()), (jet.pt2().log10()/2.).into());
+        let jet_col = to_plotters_col(self.colour.jets);
         chart.draw_series(
             AreaSeries::new(
                 [
@@ -814,7 +807,7 @@ impl Plotter {
                     (y_to_coord(centre.0 + self.r_jet), -100.)
                 ],
                 0.,
-                ShapeStyle::from(GREY.mix(0.3)).filled(),
+                ShapeStyle::from(jet_col).filled(),
             )
         ).unwrap();
     }
