@@ -1,6 +1,5 @@
 mod app;
 mod auto_decompress;
-mod config;
 mod event;
 mod image;
 mod import;
@@ -11,13 +10,12 @@ mod particle;
 mod plotter;
 
 use crate::app::App;
-use crate::config::Config;
 use crate::import::import;
 use crate::opt::Opt;
 
 use anyhow::Result;
 use env_logger::Env;
-use log::{debug, error};
+use log::debug;
 use structopt::StructOpt;
 
 fn main() -> Result<()> {
@@ -32,14 +30,6 @@ fn main() -> Result<()> {
         import(file.as_ref(), &mut events)?;
     }
 
-    let mut native_options = eframe::NativeOptions::default();
-    match confy::load::<Config>("evil") {
-        Ok(cfg) => native_options.initial_window_size = cfg.window_size.map(
-            |(x, y)| eframe::egui::Vec2{x, y}
-        ),
-        Err(err) => error!("{}", err)
-    };
-
     let app = App::new(events);
-    eframe::run_native(Box::new(app), native_options)
+    eframe::run_native(Box::new(app), eframe::NativeOptions::default())
 }

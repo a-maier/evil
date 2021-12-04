@@ -34,7 +34,6 @@ tiny-skia = "0.6"
 egui = { version = "0.15", features = ["persistence"] }
 epi = { version = "0.15", features = ["persistence"] }
 resvg = "0.19"
-confy = "0.4"
 jetty = "0.2.0"
 num-traits = "0.2.14"
 font-loader = "0.11.0"

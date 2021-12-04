@@ -8,13 +8,12 @@ use crate::particle::particle_name;
 use crate::image::Image;
 use crate::event::Event;
 use crate::font::{FontFamily, FontStyle};
-use crate::config::Config;
 use crate::plotter::Plotter;
 use crate::jets::{JetAlgorithm, JetDefinition};
 
 use font_loader::system_fonts;
 use jetty::PseudoJet;
-use log::{error, debug, trace};
+use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, PartialOrd)]
@@ -73,8 +72,6 @@ pub struct App {
     lpt_range: Range<f64>,
 
     clustering: ClusteringSettings,
-
-    window_size: (f32, f32),
 
     #[serde(skip)]
     clustering_settings_open: bool,
@@ -565,17 +562,6 @@ impl eframe::epi::App for App {
             self.update_img(frame.tex_allocator())
         }
 
-        let size = ctx.used_size();
-        self.window_size = (size.x, size.y);
-    }
-
-    fn on_exit(&mut self) {
-        let cfg = Config{
-            window_size: Some(self.window_size)
-        };
-        if let Err(err) = confy::store("evil", &cfg) {
-            error!("Failed to save config: {}", err);
-        }
     }
 }
 
