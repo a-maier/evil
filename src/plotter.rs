@@ -54,6 +54,10 @@ lazy_static!{
     static ref CYAN: egui::Color32 = egui::Color32::from_rgb(0, 159, 223);
     static ref ORANGE: egui::Color32 = egui::Color32::from_rgb(241, 143, 31);
     static ref MAGENTA: egui::Color32 = egui::Color32::from_rgb(255, 0, 255);
+    static ref PINK: egui::Color32 = egui::Color32::from_rgb(200, 127, 200);
+    static ref VIOLET: egui::Color32 = egui::Color32::from_rgb(82, 0, 127);
+    static ref GREY: egui::Color32 = egui::Color32::from_rgb(160, 160, 160);
+    static ref DARK_GREY: egui::Color32 = egui::Color32::from_rgb(80, 80, 80);
 }
 
 lazy_static!(
@@ -116,18 +120,18 @@ impl Default for ColourSettings {
             frame: egui::Color32::GRAY,
             background: egui::Color32::TRANSPARENT,
             particles: HashMap::from_iter([
-                (1,  egui::Color32::BLUE),
-                (2,  egui::Color32::DARK_GREEN),
-                (3,  *CYAN),
+                (1,  *CYAN),
+                (2,  *PINK),
+                (3,  egui::Color32::BLUE),
                 (4,  *MAGENTA),
-                (5,  egui::Color32::BLACK),
-                (6,  egui::Color32::BROWN),
+                (5,  egui::Color32::DARK_BLUE),
+                (6,  *VIOLET),
                 (11, egui::Color32::YELLOW),
                 (12, egui::Color32::WHITE),
                 (13, *ORANGE),
-                (14, egui::Color32::LIGHT_GRAY),
-                (15, egui::Color32::RED),
-                (16, egui::Color32::GRAY),
+                (14, *GREY),
+                (15, egui::Color32::BROWN),
+                (16, *DARK_GREY),
                 (21, egui::Color32::BLUE),
                 (22, egui::Color32::YELLOW),
                 (23, egui::Color32::RED),
