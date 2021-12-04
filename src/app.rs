@@ -146,7 +146,7 @@ impl App {
 
         self.y_phi = Image::new(y_phi.unwrap(), (640, 480));
         self.y_logpt = Image::new(y_logpt.unwrap(), (640, 480));
-        self.plot_3d = Image::new(plot_3d.unwrap(), (2*640, 480));
+        self.plot_3d = Image::new(plot_3d.unwrap(), (640, 480));
 
         self
     }
@@ -192,7 +192,7 @@ impl App {
             event,
             &jets,
         ).unwrap();
-        self.plot_3d = Image::new(svg, (2*1280, 960));
+        self.plot_3d = Image::new(svg, (1280, 960));
         allocator.free(self.plot_3d_id);
         self.plot_3d_id = allocator
             .alloc_srgba_premultiplied(self.plot_3d.size(), &self.plot_3d.pixels());
@@ -556,7 +556,7 @@ impl eframe::epi::App for App {
                 .alloc_srgba_premultiplied((640, 480), &self.y_logpt.pixels());
             self.plot_3d_id = frame
                 .tex_allocator()
-                .alloc_srgba_premultiplied((2*640, 480), &self.plot_3d.pixels());
+                .alloc_srgba_premultiplied((640, 480), &self.plot_3d.pixels());
             self.first_draw = false;
         }
 
@@ -573,15 +573,18 @@ impl eframe::epi::App for App {
             trace!("nominal size: {} x {}", plot_width, img_height);
             ui.columns(2, |col| {
                 col[0].vertical_centered(
-                    |ui| ui.image(self.y_phi_id, [plot_width, img_height])
+                    |ui| {
+                        ui.image(self.y_phi_id, [plot_width, img_height]);
+                        ui.image(self.y_logpt_id, [plot_width, img_height])
+                    }
                 );
                 col[1].vertical_centered(
-                    |ui| ui.image(self.y_logpt_id, [plot_width, img_height])
+                    |ui| {
+                        ui.add_space(img_height / 2.);
+                        ui.image(self.plot_3d_id, [plot_width, img_height])
+                    }
                 );
             });
-            ui.vertical_centered(
-                |ui| ui.image(self.plot_3d_id, [2.0*plot_width, img_height])
-            );
 
             eframe::egui::warn_if_debug_build(ui);
         });

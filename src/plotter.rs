@@ -336,7 +336,7 @@ impl Plotter {
         result: &mut String
     ) -> Result<()> {
 
-        let root = SVGBackend::with_string(result, (2*1280, 960)).into_drawing_area();
+        let root = SVGBackend::with_string(result, (640, 480)).into_drawing_area();
         root.fill(&to_plotters_col(self.colour.background))?;
         // let root = root.margin(10, 10, 10, 10);
         let range = (-1.0..1.0).step(0.1);

@@ -15,9 +15,7 @@ repository = "https://github.com/a-maier/evil"
 serde = { version = "1", features = ["derive"] }
 anyhow = "1.0"
 bzip2 = "0.4"
-# TODO: enable
 eframe = { version = "0.15", features = ["persistence"] }
-#eframe = "0.15"
 env_logger = "0.9"
 flate2 = "1.0"
 hepmc2 = "0.5"
