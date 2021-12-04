@@ -17,7 +17,7 @@ use jetty::PseudoJet;
 use log::{error, debug, trace};
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Deserialize, Serialize, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, PartialOrd)]
 pub struct ClusteringSettings {
     enable: bool,
     jet_def: JetDefinition
@@ -37,7 +37,7 @@ impl Default for ClusteringSettings {
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct App {
     plotter: Plotter,
@@ -90,12 +90,18 @@ impl App {
 
     pub fn new(events: Vec<Event>) -> Self {
 
-        let plotter = Plotter::new();
+        let mut app = App::default();
+        app.events = events;
+        app.init();
+        app
+    }
 
+    // Initialise everything that we don't store
+    fn init(&mut self) -> &mut Self {
         // TODO: itertools::minmax is more efficient
         let mut min = f64::MAX;
         let mut max = f64::MIN_POSITIVE;
-        for ev in &events {
+        for ev in &self.events {
             for p in &ev.out {
                 if p.pt < min {
                     min = p.pt
@@ -105,38 +111,34 @@ impl App {
                 }
             }
         }
-        let lpt_range = min.log10() .. max.log10();
-        debug!("logpt range: {}..{}", lpt_range.start, lpt_range.end);
+        debug!("logpt range: {}..{}", self.lpt_range.start, self.lpt_range.end);
 
         let y_phi;
         let y_logpt;
         let jets = Vec::new();
-        if let Some(event) = events.first() {
-            y_phi = plotter.plot_y_phi(event, &jets);
-            y_logpt = plotter.plot_y_logpt(event, &jets, lpt_range.clone());
+        if let Some(event) = self.events.first() {
+            y_phi = self.plotter.plot_y_phi(event, &jets);
+            y_logpt = self.plotter.plot_y_logpt(event, &jets, self.lpt_range.clone());
         } else {
             let ev = Event::default();
-            y_phi = plotter.plot_y_phi(&ev, &jets);
-            y_logpt = plotter.plot_y_logpt(&ev, &jets, lpt_range.clone());
+            y_phi = self.plotter.plot_y_phi(&ev, &jets);
+            y_logpt = self.plotter.plot_y_logpt(&ev, &jets, self.lpt_range.clone());
         };
-        App {
-            plotter,
-            events,
-            cur_ev_idx: 0,
-            y_phi: Image::new(y_phi.unwrap(), (640, 480)),
-            y_phi_id: Default::default(),
-            y_logpt: Image::new(y_logpt.unwrap(), (640, 480)),
-            y_logpt_id: Default::default(),
-            first_draw: true,
-            ev_idx_str: "1".to_string(),
-            ev_idx_str_col: None,
-            lpt_range,
-            clustering: Default::default(),
-            window_size: Default::default(),
-            clustering_settings_open: false,
-            plotter_settings_open: false,
-            font_names: system_fonts::query_all(),
-        }
+
+        self.cur_ev_idx = 0;
+        self.y_phi = Image::new(y_phi.unwrap(), (640, 480));
+        self.y_phi_id = Default::default();
+        self.y_logpt = Image::new(y_logpt.unwrap(), (640, 480));
+        self.y_logpt_id = Default::default();
+        self.first_draw = true;
+        self.ev_idx_str = "1".to_string();
+        self.ev_idx_str_col = None;
+        self.lpt_range = min.log10() .. max.log10();
+        self.clustering_settings_open = false;
+        self.plotter_settings_open = false;
+        self.font_names = system_fonts::query_all();
+
+        self
     }
 
     fn cluster_jets(&self, event: &Event) -> Vec<PseudoJet> {
@@ -497,7 +499,10 @@ impl eframe::epi::App for App {
         storage: Option<&dyn epi::Storage>,
     ) {
         if let Some(storage) = storage {
-            *self = epi::get_value(storage, eframe::epi::APP_KEY).unwrap_or_default()
+            let events = std::mem::take(&mut self.events);
+            *self = epi::get_value(storage, eframe::epi::APP_KEY).unwrap_or_default();
+            self.events = events;
+            self.init();
         }
     }
 
@@ -509,6 +514,7 @@ impl eframe::epi::App for App {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &eframe::egui::CtxRef, frame: &mut eframe::epi::Frame<'_>) {
+        //debug!("{:#?}", self);
         self.handle_keys(ctx.input(), frame);
 
         self.draw_menu_panel(ctx, frame);
