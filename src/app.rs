@@ -108,32 +108,33 @@ impl App {
                 }
             }
         }
+        self.lpt_range = min.log10() .. max.log10();
         debug!("logpt range: {}..{}", self.lpt_range.start, self.lpt_range.end);
 
-        let y_phi;
-        let y_logpt;
-        let jets = Vec::new();
-        if let Some(event) = self.events.first() {
-            y_phi = self.plotter.plot_y_phi(event, &jets);
-            y_logpt = self.plotter.plot_y_logpt(event, &jets, self.lpt_range.clone());
-        } else {
-            let ev = Event::default();
-            y_phi = self.plotter.plot_y_phi(&ev, &jets);
-            y_logpt = self.plotter.plot_y_logpt(&ev, &jets, self.lpt_range.clone());
-        };
-
         self.cur_ev_idx = 0;
-        self.y_phi = Image::new(y_phi.unwrap(), (640, 480));
         self.y_phi_id = Default::default();
-        self.y_logpt = Image::new(y_logpt.unwrap(), (640, 480));
         self.y_logpt_id = Default::default();
         self.first_draw = true;
         self.ev_idx_str = "1".to_string();
         self.ev_idx_str_col = None;
-        self.lpt_range = min.log10() .. max.log10();
         self.clustering_settings_open = false;
         self.plotter_settings_open = false;
         self.font_names = system_fonts::query_all();
+
+        let y_phi;
+        let y_logpt;
+        if let Some(event) = self.events.first() {
+            let jets = self.cluster_jets(&event);
+            y_phi = self.plotter.plot_y_phi(event, &jets);
+            y_logpt = self.plotter.plot_y_logpt(event, &jets, self.lpt_range.clone());
+        } else {
+            let ev = Event::default();
+            y_phi = self.plotter.plot_y_phi(&ev, &[]);
+            y_logpt = self.plotter.plot_y_logpt(&ev, &[], self.lpt_range.clone());
+        };
+
+        self.y_phi = Image::new(y_phi.unwrap(), (640, 480));
+        self.y_logpt = Image::new(y_logpt.unwrap(), (640, 480));
 
         self
     }
