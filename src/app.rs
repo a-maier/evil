@@ -87,6 +87,8 @@ pub struct App {
 
     #[serde(skip)]
     font_names: Vec<String>,
+
+    bottom_panel_space: f32,
 }
 
 impl App {
@@ -312,8 +314,8 @@ impl App {
 
     fn draw_bottom_panel(&mut self, ctx: &eframe::egui::CtxRef, frame: &mut eframe::epi::Frame<'_>) {
         eframe::egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
-            // TODO: this doesn't work
-            ui.columns(3, |col| col[1].horizontal(|ui| {
+            ui.horizontal(|ui| {
+                ui.add_space(self.bottom_panel_space);
                 if ui.add(eframe::egui::Button::new("<-")).clicked() {
                     self.prev_img(frame)
                 }
@@ -337,7 +339,10 @@ impl App {
                 if ui.add(eframe::egui::Button::new("->")).clicked() {
                     self.next_img(frame)
                 }
-            }))
+                self.bottom_panel_space = (
+                    self.bottom_panel_space + ui.available_width()
+                ) / 2.;
+            })
         });
     }
 
