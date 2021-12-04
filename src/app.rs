@@ -221,18 +221,25 @@ impl App {
         }
     }
 
-    fn show_jet_cluster_settings(&mut self, ctx: &eframe::egui::CtxRef) {
+    fn jet_cluster_settings_changed(
+        &mut self,
+        ctx: &eframe::egui::CtxRef
+    ) -> bool {
+        let mut changed = false;
         let clustering = &mut self.clustering;
         eframe::egui::Window::new("Jet clustering")
             .open(&mut self.clustering_settings_open)
             .show(ctx, |ui| {
-                ui.checkbox(&mut clustering.enable, "Enable jet clustering");
+                changed |= ui.checkbox(
+                    &mut clustering.enable,
+                    "Enable jet clustering"
+                ).changed();
                 ui.scope(|ui| {
                     ui.set_enabled(clustering.enable);
 
                     use JetAlgorithm::*;
                     let algo = &mut clustering.jet_def.algorithm;
-                    eframe::egui::ComboBox::from_label( "Jet algorithm")
+                    changed |= eframe::egui::ComboBox::from_label( "Jet algorithm")
                         .selected_text(
                             match algo {
                                 AntiKt => "anti-kt",
@@ -244,26 +251,27 @@ impl App {
                             ui.selectable_value(algo, AntiKt, "anti-kt");
                             ui.selectable_value(algo, Kt, "kt");
                             ui.selectable_value(algo, CambridgeAachen, "Cambridge/Aachen");
-                        });
+                        }).inner.is_some();
                     let jet_def =  &mut clustering.jet_def;
                     ui.horizontal(|ui| {
-                        ui.add(
+                        changed |= ui.add(
                             eframe::egui::DragValue::new(&mut jet_def.radius)
                                 .clamp_range(0.0..=6.5)
                                 .speed(0.1)
-                        );
+                        ).changed();
                         ui.label("Jet radius");
                     });
 
                     ui.horizontal(|ui| {
-                        ui.add(
+                        changed |= ui.add(
                             eframe::egui::DragValue::new(&mut jet_def.min_pt)
                                 .clamp_range(0.0..=f64::MAX)
-                        );
+                        ).changed();
                         ui.label("Minimum jet transverse momentum");
                     });
                 });
             });
+        changed
     }
 
     fn plotter_settings_changed(&mut self, ctx: &eframe::egui::CtxRef) -> bool {
@@ -345,51 +353,46 @@ fn font_settings_changed(
     ui.horizontal(
         |ui| {
             use FontFamily::*;
-            let old_family = match &plotter.font.family {
-                Serif => "serif",
-                SansSerif => "sans serif",
-                Monospace => "monospace",
-                Name(s) => s.as_str(),
+            let mut family_name = match &plotter.font.family {
+                Serif => "serif".to_owned(),
+                SansSerif => "sans serif".to_owned(),
+                Monospace => "monospace".to_owned(),
+                Name(s) => s.clone(),
             };
-            let mut family = old_family.to_string();
             ui.label("Font");
-            eframe::egui::ComboBox::from_id_source(0)
+            let font_changed = eframe::egui::ComboBox::from_id_source(0)
                 .width(150.)
-                .selected_text(&family)
+                .selected_text(&family_name)
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut family, "serif".to_string(), "serif");
-                    ui.selectable_value(&mut family, "sans serif".to_string(), "sans serif");
-                    ui.selectable_value(&mut family, "monospace".to_string(), "monospace");
+                    ui.selectable_value(&mut family_name, "serif".to_string(), "serif");
+                    ui.selectable_value(&mut family_name, "sans serif".to_string(), "sans serif");
+                    ui.selectable_value(&mut family_name, "monospace".to_string(), "monospace");
                     for name in font_names {
-                        ui.selectable_value(&mut family, name.to_string(), name);
+                        ui.selectable_value(&mut family_name, name.to_string(), name);
                     }
-                });
+                }).inner.is_some();
 
-            if family != old_family {
-                plotter.font.family = match family.as_str() {
-                    "serif"       => Serif     ,
-                    "sans serif"  => SansSerif ,
-                    "monospace"   => Monospace ,
-                    s    => Name(s.to_string())   ,
+            if font_changed {
+                plotter.font.family = match family_name.as_str() {
+                    "serif"       => Serif,
+                    "sans serif"  => SansSerif,
+                    "monospace"   => Monospace,
+                    s    => Name(s.to_string()),
                 };
                 changed = true;
             }
 
             use FontStyle::*;
-            let mut style = plotter.font.style;
-            eframe::egui::ComboBox::from_id_source(1)
+            let style = &mut plotter.font.style;
+            changed |= eframe::egui::ComboBox::from_id_source(1)
                 .width(70.)
                 .selected_text(style.to_string())
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut style, Normal, "Normal");
-                    ui.selectable_value(&mut style, Oblique, "Oblique");
-                    ui.selectable_value(&mut style, Italic, "Italic");
-                    ui.selectable_value(&mut style, Bold, "Bold");
-                });
-            if style != plotter.font.style {
-                plotter.font.style = style;
-                changed = true;
-            }
+                    ui.selectable_value(style, Normal, "Normal");
+                    ui.selectable_value(style, Oblique, "Oblique");
+                    ui.selectable_value(style, Italic, "Italic");
+                    ui.selectable_value(style, Bold, "Bold");
+                }).inner.is_some();
 
             changed |= ui.add(
                 eframe::egui::DragValue::new(&mut plotter.font.size)
@@ -547,13 +550,9 @@ impl eframe::epi::App for App {
             eframe::egui::warn_if_debug_build(ui);
         });
 
-        if self.clustering_settings_open {
-            let old = self.clustering;
-            self.show_jet_cluster_settings(ctx);
-            if self.clustering != old {
-                self.plotter.r_jet = self.clustering.jet_def.radius;
-                self.update_img(frame.tex_allocator())
-            }
+        if self.clustering_settings_open && self.jet_cluster_settings_changed(ctx){
+            self.plotter.r_jet = self.clustering.jet_def.radius;
+            self.update_img(frame.tex_allocator())
         }
 
         if self.plotter_settings_open && self.plotter_settings_changed(ctx) {
