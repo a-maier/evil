@@ -1,6 +1,6 @@
 [package]
 name = "evil"
-description = "Visualise collider events"
+description = "Visualise simulated collider events"
 authors = ["Andreas Maier <andreas.martin.maier@desy.de>"]
 version = "0.1.0"
 edition = "2018"
