@@ -4,6 +4,7 @@ use std::default::Default;
 use std::ops::Range;
 use std::string::ToString;
 
+use crate::file_dialog::FileDialog;
 use crate::particle::particle_name;
 use crate::image::Image;
 use crate::event::Event;
@@ -84,6 +85,9 @@ pub struct App {
 
     #[serde(skip)]
     plotter_settings_open: bool,
+
+    #[serde(skip)]
+    import_events: FileDialog,
 
     #[serde(skip)]
     font_names: Vec<String>,
@@ -233,8 +237,12 @@ impl App {
         );
 
         for (key, pressed, modifiers) in key_events {
-            if modifiers.ctrl && key == &Key::Q {
-                frame.quit();
+            if modifiers.ctrl {
+                match key {
+                    Key::Q => { frame.quit(); }
+                    Key::I => { self.import_events.open = true; }
+                    _ => { }
+                }
             } else if *pressed && modifiers.is_none() {
                 match key {
                     Key::ArrowRight | Key::PageDown => self.next_img(frame),
@@ -244,6 +252,15 @@ impl App {
             }
         }
     }
+
+    fn import_events(
+        &mut self,
+        ctx: &eframe::egui::CtxRef
+    ) -> Option<std::path::PathBuf> {
+        self.import_events.show(ctx);
+        None
+    }
+
 
     fn jet_cluster_settings_changed(
         &mut self,
@@ -354,6 +371,9 @@ impl App {
                 eframe::egui::menu::menu(ui, "File", |ui| {
                     if ui.button("Quit\t(Ctrl+q)").clicked() {
                         frame.quit();
+                    }
+                    if ui.button("Import\t(Ctrl+i)").clicked() {
+                        self.import_events.open = true;
                     }
                 });
                 eframe::egui::menu::menu(ui, "Settings", |ui| {
@@ -598,6 +618,13 @@ impl eframe::epi::App for App {
 
         if self.plotter_settings_open && self.plotter_settings_changed(ctx) {
             self.update_img(frame.tex_allocator())
+        }
+
+        if self.import_events.open {
+            if let Some(filename) = self.import_events(ctx) {
+                debug!("Importing events from {:?}", filename);
+                //import(file.as_ref(), &mut events)?;
+            }
         }
 
     }

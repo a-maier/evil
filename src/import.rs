@@ -8,7 +8,8 @@ use crate::event::Event;
 use anyhow::{anyhow, Context, Result};
 use log::debug;
 
-pub fn import(filename: &Path, events: &mut Vec<Event>) -> Result<()> {
+pub fn import<P: AsRef<Path>>(filename: P, events: &mut Vec<Event>) -> Result<()> {
+    let filename = filename.as_ref();
     let file = File::open(filename)?;
     let mut reader = auto_decompress(BufReader::new(file));
     let buf = reader.fill_buf()?;

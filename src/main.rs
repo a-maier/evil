@@ -1,6 +1,7 @@
 mod app;
 mod auto_decompress;
 mod event;
+mod dir_entries;
 mod image;
 mod import;
 mod jets;
@@ -8,6 +9,7 @@ mod opt;
 mod font;
 mod particle;
 mod plotter;
+mod file_dialog;
 
 use crate::app::App;
 use crate::import::import;
@@ -27,7 +29,7 @@ fn main() -> Result<()> {
     let mut events = Vec::new();
     for file in &opt.files {
         debug!("Importing events from {:?}", file);
-        import(file.as_ref(), &mut events)?;
+        import(file, &mut events)?;
     }
 
     let app = App::new(events);
