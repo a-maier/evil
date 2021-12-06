@@ -58,9 +58,7 @@ lazy_static!{
     static ref VIOLET: egui::Color32 = egui::Color32::from_rgb(82, 0, 127);
     static ref GREY: egui::Color32 = egui::Color32::from_rgb(160, 160, 160);
     static ref DARK_GREY: egui::Color32 = egui::Color32::from_rgb(80, 80, 80);
-}
 
-lazy_static!(
     static ref MAJOR_PHI_TICK_POS: [f64; N_MAJOR_PHI_TICKS] = {
         let mut arr = [0.0; N_MAJOR_PHI_TICKS];
         for (n, e) in arr.iter_mut().enumerate() {
@@ -68,9 +66,6 @@ lazy_static!(
         }
         arr
     };
-);
-
-lazy_static!(
     static ref MINOR_PHI_TICK_POS: [f64; (N_MAJOR_PHI_TICKS - 1) * N_MINOR_PHI_TICKS] = {
         let mut pos = Vec::with_capacity((N_MAJOR_PHI_TICKS - 1) * N_MINOR_PHI_TICKS);
         for major_tick in 0..(N_MAJOR_PHI_TICKS - 1) {
@@ -85,16 +80,11 @@ lazy_static!(
         res.copy_from_slice(&pos);
         res
     };
-);
 
-lazy_static!(
     static ref MAJOR_Y_TICK_POS: Vec<f64> =
         iter::once(Y_MIN).chain(
             (Y_MIN as i32 ..=(Y_MAX as i32)).map(|i| y_to_coord(i as f64))
         ).chain(iter::once(Y_MAX)).collect();
-);
-
-lazy_static!(
     static ref MINOR_Y_TICK_POS: Vec<f64> = {
         let mut pos = vec![-4.5, -3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5];
         for y in &mut pos {
@@ -102,7 +92,7 @@ lazy_static!(
         }
         pos
     };
-);
+}
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
 pub struct ColourSettings {
