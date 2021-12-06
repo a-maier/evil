@@ -48,8 +48,8 @@ fn import_lhef<R: BufRead>(reader: R, events: &mut Vec<Event>) -> Result<()> {
 }
 
 fn import_hepmc<R: BufRead>(reader: R, events: &mut Vec<Event>) -> Result<()> {
-    let mut reader = hepmc2::reader::Reader::new(reader);
-    while let Some(event) = reader.next() {
+    let reader = hepmc2::reader::Reader::new(reader);
+    for event in reader {
         let event = event.map_err(
             |err| anyhow!("Error reading HepMC event: {}", err)
         )?;

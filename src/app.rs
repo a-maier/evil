@@ -95,8 +95,10 @@ impl App {
 
     pub fn new(events: Vec<Event>) -> Self {
 
-        let mut app = App::default();
-        app.events = events;
+        let mut app = App {
+            events,
+            ..Default::default()
+        };
         app.init();
         app
     }
@@ -133,7 +135,7 @@ impl App {
         let y_logpt;
         let plot_3d;
         if let Some(event) = self.events.first() {
-            let jets = self.cluster_jets(&event);
+            let jets = self.cluster_jets(event);
             y_phi = self.plotter.plot_y_phi(event, &jets);
             y_logpt = self.plotter.plot_y_logpt(event, &jets, self.lpt_range.clone());
             plot_3d = self.plotter.plot_3d(event, &jets);
@@ -175,7 +177,7 @@ impl App {
         self.y_phi = Image::new(svg, (1280, 960));
         allocator.free(self.y_phi_id);
         self.y_phi_id = allocator
-            .alloc_srgba_premultiplied(self.y_phi.size(), &self.y_phi.pixels());
+            .alloc_srgba_premultiplied(self.y_phi.size(), self.y_phi.pixels());
 
         let svg = self.plotter.plot_y_logpt(
             event,
@@ -185,7 +187,7 @@ impl App {
         self.y_logpt = Image::new(svg, (1280, 960));
         allocator.free(self.y_logpt_id);
         self.y_logpt_id = allocator
-            .alloc_srgba_premultiplied(self.y_logpt.size(), &self.y_logpt.pixels());
+            .alloc_srgba_premultiplied(self.y_logpt.size(), self.y_logpt.pixels());
 
 
         let svg = self.plotter.plot_3d(
@@ -195,7 +197,7 @@ impl App {
         self.plot_3d = Image::new(svg, (1280, 960));
         allocator.free(self.plot_3d_id);
         self.plot_3d_id = allocator
-            .alloc_srgba_premultiplied(self.plot_3d.size(), &self.plot_3d.pixels());
+            .alloc_srgba_premultiplied(self.plot_3d.size(), self.plot_3d.pixels());
     }
 
     fn prev_img(&mut self, frame: &mut eframe::epi::Frame<'_>) {
@@ -550,13 +552,13 @@ impl eframe::epi::App for App {
         if self.first_draw {
             self.y_phi_id = frame
                 .tex_allocator()
-                .alloc_srgba_premultiplied((640, 480), &self.y_phi.pixels());
+                .alloc_srgba_premultiplied((640, 480), self.y_phi.pixels());
             self.y_logpt_id = frame
                 .tex_allocator()
-                .alloc_srgba_premultiplied((640, 480), &self.y_logpt.pixels());
+                .alloc_srgba_premultiplied((640, 480), self.y_logpt.pixels());
             self.plot_3d_id = frame
                 .tex_allocator()
-                .alloc_srgba_premultiplied((640, 480), &self.plot_3d.pixels());
+                .alloc_srgba_premultiplied((640, 480), self.plot_3d.pixels());
             self.first_draw = false;
         }
 

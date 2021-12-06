@@ -21,7 +21,7 @@ use plotters::style::{
 use log::{debug};
 use serde::{Deserialize, Serialize};
 
-const GOLDEN_RATIO: f64 = 1.618033988749894848;
+const GOLDEN_RATIO: f64 = 1.618033988749895;
 const PHI_MIN: f64 = -PI;
 const PHI_MAX: f64 = PI;
 const PHI_AXIS_MIN: f64 = -3.25;
@@ -82,9 +82,7 @@ lazy_static!(
             }
         }
         let mut res = [0.0; (N_MAJOR_PHI_TICKS - 1) * N_MINOR_PHI_TICKS];
-        for n in 0..res.len() {
-            res[n] = pos[n];
-        }
+        res.copy_from_slice(&pos);
         res
     };
 );
@@ -241,11 +239,11 @@ impl Plotter {
         self.dress_phi_axis(&root, &mut chart);
 
         for jet in jets {
-            self.draw_y_phi_jet(&root, &mut chart, &jet);
+            self.draw_y_phi_jet(&root, &mut chart, jet);
         }
         let mut legend_ids = BTreeSet::new();
         for particle in &event.out {
-            self.draw_y_phi(&root, &chart, &particle);
+            self.draw_y_phi(&root, &chart, particle);
             legend_ids.insert(particle.id);
         }
 
@@ -298,14 +296,14 @@ impl Plotter {
 
         self.dress_rap_axis(&root, &mut chart);
         let logpt_range = logpt_start.ceil() as i64 .. logpt_end.floor() as i64;
-        self.dress_logpt_axis(&root, &mut chart, logpt_range.clone());
+        self.dress_logpt_axis(&root, &mut chart, logpt_range);
 
         for jet in jets {
-            self.draw_y_logpt_jet(&root, &mut chart, &jet);
+            self.draw_y_logpt_jet(&root, &mut chart, jet);
         }
         let mut legend_ids = BTreeSet::new();
         for particle in &event.out {
-            self.draw_y_logpt(&root, &chart, &particle);
+            self.draw_y_logpt(&root, &chart, particle);
             legend_ids.insert(particle.id);
         }
 
@@ -345,7 +343,7 @@ impl Plotter {
             .set_all_label_area_size(5)
             .set_label_area_size(LabelAreaPosition::Left, 110)
             .set_label_area_size(LabelAreaPosition::Bottom, 80)
-            .build_cartesian_3d(range.clone(), range.clone(), range.clone())?;
+            .build_cartesian_3d(range.clone(), range.clone(), range)?;
 
         chart.with_projection(|mut pb| {
             pb.pitch = self.settings_3d.projection.pitch;
@@ -396,7 +394,7 @@ impl Plotter {
     }
 
     // TODO: return Result
-    fn draw_x_tick<'b, DB, X, Y, S>(
+    fn draw_x_tick<DB, X, Y, S>(
         &self,
         root: & DrawingArea<DB, Shift>,
         chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
@@ -426,7 +424,7 @@ impl Plotter {
     }
 
     // TODO: return Result
-    fn draw_y_tick<'b, DB, X, Y, S>(
+    fn draw_y_tick<DB, X, Y, S>(
         &self,
         root: & DrawingArea<DB, Shift>,
         chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
@@ -455,7 +453,7 @@ impl Plotter {
         ).unwrap();
     }
 
-    fn draw_tick<'b, DB, X, Y, S>(
+    fn draw_tick<DB, X, Y, S>(
         &self,
         root: & DrawingArea<DB, Shift>,
         chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
@@ -480,7 +478,7 @@ impl Plotter {
         }
     }
 
-    fn draw_ticks<'b, DB, X, Y, P, I>(
+    fn draw_ticks<DB, X, Y, P, I>(
         &self,
         root: & DrawingArea<DB, Shift>,
         chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
@@ -572,8 +570,8 @@ impl Plotter {
         Y: Ranged<ValueType = f64>,
     {
         self.draw_text(
-            &root,
-            &chart,
+            root,
+            chart,
             text,
             (Y_AXIS_MIN , pos),
             (- TICK_LABEL_OFFSET, 0),
@@ -595,8 +593,8 @@ impl Plotter {
     {
         let ymin = chart.y_range().start;
         self.draw_text(
-            &root,
-            &chart,
+            root,
+            chart,
             text,
             (pos, ymin),
             (0, TICK_LABEL_OFFSET),
@@ -634,21 +632,21 @@ impl Plotter {
     fn dress_phi_axis<DB, X, Y>(
         &self,
         root: & DrawingArea<DB, Shift>,
-        mut chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
+        chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
     )
     where
         DB: DrawingBackend,
         X: Ranged<ValueType = f64>,
         Y: Ranged<ValueType = f64>,
     {
-        self.draw_phi_ticks(root, &mut chart);
-        self.phi_tick_label(&root, &chart, "π", PI);
-        self.phi_tick_label(&root, &chart, "π/2", PI / 2.);
-        self.phi_tick_label(&root, &chart, "0", 0.);
-        self.phi_tick_label(&root, &chart, "-π/2", -PI / 2.);
-        self.phi_tick_label(&root, &chart, "-π", -PI);
+        self.draw_phi_ticks(root, chart);
+        self.phi_tick_label(root, chart, "π", PI);
+        self.phi_tick_label(root, chart, "π/2", PI / 2.);
+        self.phi_tick_label(root, chart, "0", 0.);
+        self.phi_tick_label(root, chart, "-π/2", -PI / 2.);
+        self.phi_tick_label(root, chart, "-π", -PI);
         self.draw_text(
-            &root, &chart,
+            root, chart,
             "φ",
             (Y_AXIS_MIN, 0.0),
             (- Y_AXIS_LABEL_OFFSET, 0),
@@ -659,7 +657,7 @@ impl Plotter {
     fn dress_logpt_axis<DB, X, Y>(
         &self,
         root: & DrawingArea<DB, Shift>,
-        mut chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
+        chart: &mut ChartContext<'_, DB, Cartesian2d<X, Y>>,
         mut range: Range<i64>
     )
     where
@@ -668,7 +666,7 @@ impl Plotter {
         Y: Ranged<ValueType = f64>,
     {
         range.end += 1;
-        self.draw_logpt_ticks(root, &mut chart, range.clone());
+        self.draw_logpt_ticks(root, chart, range.clone());
         let col = to_plotters_col(self.colour.frame);
         let align = Pos{ h_pos: HPos::Right, v_pos: VPos::Center };
         let style = TextStyle {
@@ -678,7 +676,7 @@ impl Plotter {
         };
         let sup_style = TextStyle {
             font: style.font.resize(REL_SUB_FONT_SIZE * self.font.size),
-            color: style.color.clone(),
+            color: style.color,
             pos: align
         };
         // TODO: how to calculate this properly?
@@ -728,14 +726,14 @@ impl Plotter {
     {
         self.draw_rap_ticks(root, chart);
         for y in (Y_MIN as i32)..=(Y_MAX as i32) {
-            self.rap_tick_label(&root, &chart, &format!("{}", y), y_to_coord(y as f64));
+            self.rap_tick_label(root, chart, &format!("{}", y), y_to_coord(y as f64));
         }
         // fudge slightly to avoid label collision
-        self.rap_tick_label(&root, &chart, "-∞", Y_MIN - 0.1);
-        self.rap_tick_label(&root, &chart, "∞", Y_MAX);
+        self.rap_tick_label(root, chart, "-∞", Y_MIN - 0.1);
+        self.rap_tick_label(root, chart, "∞", Y_MAX);
         let ymin = chart.y_range().start;
         self.draw_text(
-            &root, &chart,
+            root, chart,
             "y",
             (0., ymin),
             (0, X_AXIS_LABEL_OFFSET),
@@ -815,7 +813,7 @@ impl Plotter {
     {
         debug!("Drawing particle {} at (y, φ) = ({}, {})", particle.id, particle.y, particle.phi);
         let centre = (y_to_coord(particle.y), particle.phi);
-        self.draw_particle_at(&root, &chart, particle.id, centre);
+        self.draw_particle_at(root, chart, particle.id, centre);
     }
 
     fn draw_jet_circle<DB, X, Y>(
@@ -886,7 +884,7 @@ impl Plotter {
     {
         debug!("Drawing particle {} at (y, log(pt)) = ({}, {})", particle.id, particle.y, particle.pt.log10());
         let centre = (y_to_coord(particle.y), particle.pt.log10());
-        self.draw_particle_at(&root, &chart, particle.id, centre);
+        self.draw_particle_at(root, chart, particle.id, centre);
     }
 
     fn draw_y_logpt_jet<DB, X, Y>(
