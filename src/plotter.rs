@@ -786,7 +786,24 @@ impl Plotter {
                         Into::<ShapeStyle>::into(&frame_col),
                     )).unwrap();
             },
-            _ => panic!("Cannot draw particle with type {}", particle_id)
+            _ => {
+                let centre = chart.backend_coord(&centre);
+                let coord = [
+                    sub(centre, BOX_CORNER),
+                    add(centre, (BOX_CORNER.0, -BOX_CORNER.1)),
+                    add(centre, (0, BOX_CORNER.1))
+                ];
+                root.draw(
+                    &Polygon::new(
+                        coord,
+                        Into::<ShapeStyle>::into(&fill_col).filled(),
+                    )).unwrap();
+                root.draw(
+                    &Polygon::new(
+                        coord,
+                        Into::<ShapeStyle>::into(&frame_col),
+                    )).unwrap();
+            }
         }
     }
 
