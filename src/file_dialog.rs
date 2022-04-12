@@ -1,4 +1,6 @@
+use std::default::Default;
 use std::env::current_dir;
+use std::path::{Path, PathBuf};
 
 use crate::dir_entries::dir_entries;
 
@@ -8,8 +10,19 @@ pub struct FileDialog {
     inner: FileDialogInner,
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq)]
 struct FileDialogInner {
+    path: PathBuf
+}
+
+impl Default for FileDialogInner {
+    fn default() -> Self {
+        Self {
+            path: current_dir().unwrap_or_else(
+                |_| dirs::home_dir().unwrap() // TODO
+            ),
+        }
+    }
 }
 
 impl FileDialog {
@@ -29,61 +42,46 @@ impl FileDialog {
 
 impl FileDialogInner {
     fn ui(&mut self, ui: &mut egui::Ui) {
-        // Note that the order we add the panels is very important!
+        let dir = dir(&self.path).unwrap();
+        let entries = dir_entries(dir).unwrap_or_default();
 
-        egui::TopBottomPanel::top(
-            "file_dialog_top_panel"
-        ).show_inside(ui, |_ui| {});
-        egui::SidePanel::left("file_dialog_left_panel")
-            .resizable(true)
-            .default_width(150.0)
-            .width_range(80.0..=200.0)
-            .show_inside(ui, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.heading("Left Panel");
-                });
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    lorem_ipsum(ui);
-                });
-            });
-
-        egui::CentralPanel::default()
-            .show_inside(ui, |ui| {
-                let dir = current_dir().unwrap_or_else(
-                    |_| dirs::home_dir().unwrap() // TODO
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            for dir in entries.dirs {
+                ui.add(
+                    egui::widgets::Button::new(format!("🗖 {:?}", dir))
+                        .fill(egui::Color32::TRANSPARENT)
+                        .frame(false)
                 );
-                let entries = dir_entries(dir).unwrap_or_default();
-
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    for dir in entries.dirs {
-                        ui.add(
-                            egui::widgets::Button::new(format!("🗖 {:?}", dir))
-                                .fill(egui::Color32::TRANSPARENT)
-                                .frame(false)
-                        );
-                    }
-                    for file in entries.files {
-                        ui.add(
-                            egui::widgets::Button::new(format!("🖹 {:?}", file))
-                                .fill(egui::Color32::TRANSPARENT)
-                                .frame(false)
-                        );
-                    }
-                });
+            }
+            for file in entries.files {
+                ui.add(
+                    egui::widgets::Button::new(format!("🖹 {:?}", file))
+                        .fill(egui::Color32::TRANSPARENT)
+                        .frame(false)
+                );
+            }
+            ui.separator();
+            let mut path = self.path.to_str()
+                .expect("Failed to convert path to str")
+                .to_owned();
+            ui.horizontal(|ui| {
+                ui.label("Name");
+                let changed = ui.add(
+                    eframe::egui::TextEdit::singleline(&mut path)
+                ).changed();
+                if changed {
+                }
+            });
         });
 
-        egui::SidePanel::right("file_dialog_right_panel")
-            .resizable(false)
-            .width_range(8.0..=16.0)
-            .show_inside(ui, |_ui| {});
+
     }
 }
 
-fn lorem_ipsum(ui: &mut egui::Ui) {
-    ui.with_layout(
-        egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
-        |ui| {
-            ui.add(egui::Label::new("wot").small().weak());
-        },
-    );
+fn dir(p: &Path) -> Option<&Path> {
+    if p.is_dir() {
+        Some(p)
+    } else {
+        p.parent()
+    }
 }
