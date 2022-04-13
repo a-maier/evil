@@ -5,7 +5,7 @@
 //! You can also find precompiled executables on
 //! [github](https://github.com/a-maier/evil/releases). Start with
 //!
-//!   evil EVENTFILE
+//!     evil EVENTFILE
 //!
 //! The event file should be in the LHEF or version 2 of the HepMC
 //! format and can be compressed (bzip2, gzip, lz4, zstd).
@@ -14,7 +14,7 @@
 //! your system, you can of course compile and run directly from the
 //! source code:
 //!
-//!   cargo run --release -- EVENTFILE
+//!     cargo run --release -- EVENTFILE
 //!
 mod app;
 mod auto_decompress;
