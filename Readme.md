@@ -4,7 +4,7 @@ An *ev*ent *il*lustrator for Monte Carlo collider events.
 
 ## How to use
 
-You can also find precompiled executables on
+You can find precompiled executables on
 [github](https://github.com/a-maier/evil/releases). Start with
 
     evil EVENTFILE
