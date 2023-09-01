@@ -1,21 +1,34 @@
+use crate::event::Event;
+use crate::plotter::Plotter;
+use crate::windows::{DetectorWin, YPhiWin, YLogPtWin};
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
-#[serde(default)] // if we add new fields, give them default values when deserializing old state
+#[serde(default)]
+#[derive(Default)]
 pub struct TemplateApp {
-    // Example stuff:
-    label: String,
-
-    // this how you opt-out of serialization of a member
+    y_log_pt: YLogPtWin,
+    y_phi: YPhiWin,
+    detector: DetectorWin,
+    plotter: Plotter,
     #[serde(skip)]
-    value: f32,
+    events: Vec<Event>,
+    #[serde(skip)]
+    event_idx: usize,
+    #[serde(skip)]
+    bottom_panel: BottomPanelData,
 }
 
-impl Default for TemplateApp {
+struct BottomPanelData {
+    ev_idx_str: String,
+    space: f32,
+}
+
+impl Default for BottomPanelData {
     fn default() -> Self {
         Self {
-            // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
+            ev_idx_str: "1".to_string(),
+            space: 0.
         }
     }
 }
@@ -26,14 +39,77 @@ impl TemplateApp {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
+        // Disable feathering as it allegedly causes artifacts
+        let context = &cc.egui_ctx;
+
+        context.tessellation_options_mut(|tess_options| {
+            tess_options.feathering = false;
+        });
+
         // Load previous app state (if any).
-        // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
             return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         }
 
         Default::default()
     }
+
+    fn menu(
+        &mut self,
+        ui: &mut egui::Ui,
+        frame: &mut eframe::Frame,
+    ) {
+        egui::menu::bar(ui, |ui| {
+            #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
+            ui.menu_button("File", |ui| {
+                if ui.button("Quit").clicked() {
+                    frame.close();
+                }
+            });
+            ui.menu_button("Windows", |ui| {
+                ui.checkbox(&mut self.y_log_pt.is_open, "y-log(pt) plot");
+                ui.checkbox(&mut self.y_phi.is_open, "y-φ plot");
+                ui.checkbox(&mut self.detector.is_open, "Detector view");
+            });
+        });
+    }
+
+    fn draw_bottom_panel(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        eframe::egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.add_space(self.bottom_panel.space);
+                if ui.add(egui::Button::new("<-")).clicked() {
+                    // TODO
+                    //self.prev_img(frame)
+                }
+                let width = 10. * (std::cmp::max(self.events.len(), 100) as f32).log10();
+
+                let response = ui.add(
+                    egui::TextEdit::singleline(&mut self.bottom_panel.ev_idx_str)
+                        .desired_width(width)
+                        // TODO
+                        //.text_color_opt(self.ev_idx_str_col)
+                );
+                if response.changed() {
+                    match self.bottom_panel.ev_idx_str.parse::<usize>() {
+                        Ok(ev_idx) if ev_idx > 0 && ev_idx <= self.events.len() => {
+                            // TODO
+                            //self.update_ev(ev_idx - 1, frame.tex_allocator());
+                        },
+                        _ => { }
+                    };
+                }
+                ui.label(format!("/{}", self.events.len()));
+                if ui.add(eframe::egui::Button::new("->")).clicked() {
+                    // self.next_img(frame)
+                }
+                self.bottom_panel.space = (
+                    self.bottom_panel.space + ui.available_width()
+                ) / 2.;
+            })
+        });
+    }
+
 }
 
 impl eframe::App for TemplateApp {
@@ -44,73 +120,21 @@ impl eframe::App for TemplateApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value } = self;
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| self.menu(ui, frame));
 
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
+        let dummy = Event::default();
+        let event = if self.events.is_empty() {
+            &dummy
+        } else {
+            &self.events[self.event_idx]
+        };
 
-        #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        _frame.close();
-                    }
-                });
-            });
-        });
+        self.y_log_pt.show(ctx, &self.plotter, event);
+        self.y_phi.show(ctx, &self.plotter, event);
+        self.detector.show(ctx, &self.plotter, event);
 
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Side Panel");
-
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(label);
-            });
-
-            ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                *value += 1.0;
-            }
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.label("powered by ");
-                    ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-                    ui.label(" and ");
-                    ui.hyperlink_to(
-                        "eframe",
-                        "https://github.com/emilk/egui/tree/master/crates/eframe",
-                    );
-                    ui.label(".");
-                });
-            });
-        });
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-
-            ui.heading("eframe template");
-            ui.hyperlink("https://github.com/emilk/eframe_template");
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
-            egui::warn_if_debug_build(ui);
-        });
-
-        if false {
-            egui::Window::new("Window").show(ctx, |ui| {
-                ui.label("Windows can be moved by dragging them.");
-                ui.label("They are automatically sized based on contents.");
-                ui.label("You can turn on resizing and scrolling if you like.");
-                ui.label("You would normally choose either panels OR windows.");
-            });
-        }
+        self.draw_bottom_panel(ctx, frame);
     }
+
 }
