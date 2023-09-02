@@ -30,16 +30,14 @@ const Y_MIN: f64 = -5.;
 const Y_MAX: f64 = 5.;
 const Y_AXIS_MIN: f64 = GOLDEN_RATIO * PHI_AXIS_MIN;
 const Y_AXIS_MAX: f64 = GOLDEN_RATIO * PHI_AXIS_MAX;
-const MAJOR_TICK_SIZE: i32 = 14;
+const MAJOR_TICK_SIZE: i32 = 5;
 const MINOR_TICK_SIZE: i32 = MAJOR_TICK_SIZE / 2;
 const N_MAJOR_PHI_TICKS: usize = 5;
 const N_MINOR_PHI_TICKS: usize = 3;
 
-const X_AXIS_LABEL_OFFSET: i32 = 50;
-const Y_AXIS_LABEL_OFFSET: i32 = 60;
-const Y_AXIS_LABEL_OFFSET_LOGPT: i32 = 80;
-const TICK_LABEL_OFFSET: i32 = 10;
-const TICK_LABEL_OFFSET_LOGPT: i32 = 20;
+const X_AXIS_LABEL_OFFSET: i32 = 25;
+const Y_AXIS_LABEL_OFFSET: i32 = 30;
+const TICK_LABEL_OFFSET: i32 = 7;
 
 const BOX_CORNER: (i32, i32) = (5, 5);
 const CIRCLE_SIZE: i32 = 5;
@@ -654,12 +652,12 @@ impl Plotter {
         let s = self.font.size as i32;
         for logpt in range {
             let sup_pos = if logpt < 0 {
-                (s / 3, -(s / 4))
+                (3 * s / 5, -(s / 4))
             } else {
-                (s / 10, -(s / 4))
+                (s / 5, -(s / 4))
             };
             let pos = (Y_AXIS_MIN, logpt as f64);
-            let offset = ( - TICK_LABEL_OFFSET_LOGPT, 0);
+            let offset = ( - TICK_LABEL_OFFSET, 0);
             let mut pos = chart.backend_coord(&pos);
             pos.0 += offset.0;
             pos.1 += offset.1;
@@ -674,7 +672,7 @@ impl Plotter {
         let y_range = chart.y_range();
 
         let pos = (Y_AXIS_MIN, (y_range.start + y_range.end) / 2.);
-        let offset = ( - Y_AXIS_LABEL_OFFSET_LOGPT, 0);
+        let offset = ( - Y_AXIS_LABEL_OFFSET, 0);
         let pos = add(chart.backend_coord(&pos), offset);
         root.draw(
             &(
