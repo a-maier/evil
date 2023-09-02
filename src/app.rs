@@ -1,6 +1,6 @@
 use crate::event::Event;
 use crate::plotter::Plotter;
-use crate::windows::{DetectorWin, YPhiWin, YLogPtWin};
+use crate::windows::{PlotterSettings, DetectorWin, YPhiWin, YLogPtWin};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -11,6 +11,7 @@ pub struct TemplateApp {
     y_phi: YPhiWin,
     detector: DetectorWin,
     plotter: Plotter,
+    plotter_settings: PlotterSettings,
     #[serde(skip)]
     events: Vec<Event>,
     #[serde(skip)]
@@ -66,6 +67,14 @@ impl TemplateApp {
                     frame.close();
                 }
             });
+            ui.menu_button("Settings", |ui| {
+                // if ui.button("Jet clustering").clicked() {
+                //     self.clustering_settings.open = true;
+                // }
+                if ui.button("Plotting").clicked() {
+                    self.plotter_settings.is_open = true;
+                }
+            });
             ui.menu_button("Windows", |ui| {
                 ui.checkbox(&mut self.y_log_pt.is_open, "y-log(pt) plot");
                 ui.checkbox(&mut self.y_phi.is_open, "y-φ plot");
@@ -74,7 +83,7 @@ impl TemplateApp {
         });
     }
 
-    fn draw_bottom_panel(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn draw_bottom_panel(&mut self, ctx: &egui::Context) {
         eframe::egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.add_space(self.bottom_panel.space);
@@ -94,7 +103,7 @@ impl TemplateApp {
                     match self.bottom_panel.ev_idx_str.parse::<usize>() {
                         Ok(ev_idx) if ev_idx > 0 && ev_idx <= self.events.len() => {
                             // TODO
-                            //self.update_ev(ev_idx - 1, frame.tex_allocator());
+                            //self.update_ev(ev_idx - 1);
                         },
                         _ => { }
                     };
@@ -130,11 +139,15 @@ impl eframe::App for TemplateApp {
             &self.events[self.event_idx]
         };
 
+        if self.plotter_settings.changed(ctx) {
+            self.plotter.font = self.plotter_settings.font.clone();
+        }
+
         self.y_log_pt.show(ctx, &self.plotter, event);
         self.y_phi.show(ctx, &self.plotter, event);
         self.detector.show(ctx, &self.plotter, event);
 
-        self.draw_bottom_panel(ctx, frame);
+        self.draw_bottom_panel(ctx);
     }
 
 }
