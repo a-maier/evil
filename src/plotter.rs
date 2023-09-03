@@ -40,8 +40,8 @@ const X_AXIS_LABEL_OFFSET: i32 = 25;
 const Y_AXIS_LABEL_OFFSET: i32 = 30;
 const TICK_LABEL_OFFSET: i32 = 7;
 
-const BOX_CORNER: (i32, i32) = (5, 5);
-const CIRCLE_SIZE: i32 = 5;
+const BOX_CORNER: (i32, i32) = (3, 3);
+const CIRCLE_SIZE: i32 = 3;
 
 const LEGEND_X_POS: f64 = 4.;
 const LEGEND_START_REL: f64 = 0.95;
