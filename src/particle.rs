@@ -1,6 +1,9 @@
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
+use particle_id::ParticleID;
+use particle_id::sm_elementary_particles::gluon;
+
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Particle {
-    pub id: i32,
+    pub id: ParticleID,
     pub p: [f64; 4],
     pub y: f64,
     pub phi: f64,
@@ -8,7 +11,7 @@ pub struct Particle {
 }
 
 impl Particle {
-    pub fn new(id: i32, p: [f64; 4]) -> Self {
+    pub fn new(id: ParticleID, p: [f64; 4]) -> Self {
         Particle {
             id,
             p,
@@ -23,7 +26,7 @@ impl Particle {
     }
 
     pub fn is_antiparticle(&self) -> bool {
-        self.id < 0
+        self.id.is_anti_particle()
     }
 
     pub fn name(&self) -> &'static str {
@@ -31,12 +34,12 @@ impl Particle {
     }
 
     pub fn is_parton(&self) -> bool {
-        self.id == 21 || self.id.abs() <= 5
+        self.id == gluon || self.id.id().abs() <= 5
     }
 }
 
-pub fn particle_name(id: i32) -> &'static str {
-    match id {
+pub fn particle_name(id: ParticleID) -> &'static str {
+    match id.id() {
         1 => "d",
         2 => "u",
         3 => "s",
@@ -71,9 +74,9 @@ pub fn particle_name(id: i32) -> &'static str {
     }
 }
 
-pub fn spin_type(id: i32) -> SpinType {
+pub fn spin_type(id: ParticleID) -> SpinType {
     use SpinType::*;
-    match id.abs() {
+    match id.id().abs() {
         1..=16 => Fermion,
         21..=25 => Boson,
         _ => Unknown

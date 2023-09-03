@@ -12,6 +12,7 @@ use anyhow::Result;
 use jetty::PseudoJet;
 use lazy_static::lazy_static;
 use num_traits::float::Float;
+use particle_id::ParticleID;
 use plotters::prelude::*;
 use plotters::coord::Shift;
 use plotters::style::{
@@ -711,9 +712,9 @@ impl Plotter {
     }
 
 
-    fn get_particle_colour(&self, pid: i32) -> RGBAColor {
+    fn get_particle_colour(&self, pid: ParticleID) -> RGBAColor {
         let col = self.colour.particles.get(
-            &pid.abs()
+            &pid.id().abs()
         ).unwrap_or(&egui::Color32::GRAY);
         to_plotters_col(*col)
     }
@@ -722,7 +723,7 @@ impl Plotter {
         &self,
         root: & DrawingArea<DB, Shift>,
         chart: & ChartContext<'_, DB, Cartesian2d<X, Y>>,
-        particle_id: i32,
+        particle_id: ParticleID,
         centre: (f64, f64)
     )
     where
@@ -797,9 +798,11 @@ impl Plotter {
         X: Ranged<ValueType = f64>,
         Y: Ranged<ValueType = f64>,
     {
-        debug!("Drawing particle {} at (y, φ) = ({}, {})", particle.id, particle.y, particle.phi);
-        let centre = (y_to_coord(particle.y), particle.phi);
-        self.draw_particle_at(root, chart, particle.id, centre);
+        let Particle {id, y, phi, ..} = particle;
+
+        debug!("Drawing particle {} at (y, φ) = ({y}, {phi})", id.id());
+        let centre = (y_to_coord(*y), *phi);
+        self.draw_particle_at(root, chart, *id, centre);
     }
 
     fn draw_jet_circle<DB, X, Y>(
@@ -868,9 +871,10 @@ impl Plotter {
         X: Ranged<ValueType = f64>,
         Y: Ranged<ValueType = f64>,
     {
-        debug!("Drawing particle {} at (y, log(pt)) = ({}, {})", particle.id, particle.y, particle.pt.log10());
-        let centre = (y_to_coord(particle.y), particle.pt.log10());
-        self.draw_particle_at(root, chart, particle.id, centre);
+        let Particle { id, y, pt, .. } = particle;
+        debug!("Drawing particle {} at (y, log(pt)) = ({y}, {})", id.id(), pt.log10());
+        let centre = (y_to_coord(*y), pt.log10());
+        self.draw_particle_at(root, chart, *id, centre);
     }
 
     fn draw_y_logpt_jet<DB, X, Y>(

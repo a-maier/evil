@@ -2,9 +2,12 @@
 
 mod app;
 mod event;
+mod event_loader;
 mod font;
 mod particle;
 mod plotter;
 mod windows;
 
 pub use app::TemplateApp;
+pub use event::Event;
+pub use event_loader::EventLoader;

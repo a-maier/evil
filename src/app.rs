@@ -36,7 +36,10 @@ impl Default for BottomPanelData {
 
 impl TemplateApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        events: Vec<Event>
+    ) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -49,10 +52,15 @@ impl TemplateApp {
 
         // Load previous app state (if any).
         if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            let mut res: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            res.events = events;
+            return res;
         }
 
-        Default::default()
+        Self{
+            events,
+            ..Default::default()
+        }
     }
 
     fn menu(
