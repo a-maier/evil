@@ -10,8 +10,8 @@ categories = ["science"]
 repository = "https://github.com/a-maier/evil"
 
 [dependencies]
-egui = "0.22.0"
-eframe = { version = "0.22.0", default-features = false, features = [
+egui = { version = "0.23.0", features = ["serde"] }
+eframe = { version = "0.23.0", default-features = false, features = [
     "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
@@ -19,7 +19,7 @@ eframe = { version = "0.22.0", default-features = false, features = [
 ] }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
-egui-plotter = { git = "https://github.com/Gip-Gip/egui-plotter/" }
+egui_plot = "0.23.0"
 plotters = "0.3.5"
 anyhow = "1.0.75"
 jetty = "0.3.2"

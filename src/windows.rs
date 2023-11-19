@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use egui_plotter::EguiBackend;
+use egui::Context;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
@@ -50,14 +50,12 @@ impl YLogPtWin {
             .min_width(100.)
             .min_height(100.)
             .show(ctx, |ui| {
-                let root = EguiBackend::new(ui);
-                let plot = plotter.plot_y_logpt(
+                plotter.plot_y_logpt(
+                    ui,
                     event,
                     &[],
                     self.logpt.clone(),
-                    root,
-                ).unwrap();
-                plot.present().unwrap();
+                );
             });
     }
 }
@@ -91,13 +89,11 @@ impl YPhiWin {
             .min_width(100.)
             .min_height(100.)
             .show(ctx, |ui| {
-                let root = EguiBackend::new(ui);
-                let plot = plotter.plot_y_phi(
+                plotter.plot_y_phi(
+                    ui,
                     event,
                     &[],
-                    root,
-                ).unwrap();
-                plot.present().unwrap();
+                );
             });
     }
 }
@@ -129,13 +125,13 @@ impl DetectorWin {
             .min_width(100.)
             .min_height(100.)
             .show(ctx, |ui| {
-                let root = EguiBackend::new(ui);
-                let plot = plotter.plot_3d(
-                    event,
-                    &[],
-                    root,
-                ).unwrap();
-                plot.present().unwrap();
+                // let root = EguiBackend::new(ui);
+                // let plot = plotter.plot_3d(
+                //     event,
+                //     &[],
+                //     root,
+                // ).unwrap();
+                // plot.present().unwrap();
             });
     }
 }
@@ -151,7 +147,7 @@ pub struct PlotterSettings {
 impl PlotterSettings {
     pub(crate) fn changed(
         &mut self,
-        ctx: &egui::Context,
+        ctx: &Context,
     ) -> bool {
         let mut changed = false;
 

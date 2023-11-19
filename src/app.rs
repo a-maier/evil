@@ -1,3 +1,5 @@
+use egui::Context;
+
 use crate::event::Event;
 use crate::plotter::Plotter;
 use crate::windows::{PlotterSettings, DetectorWin, YPhiWin, YLogPtWin};
@@ -91,7 +93,7 @@ impl TemplateApp {
         });
     }
 
-    fn draw_bottom_panel(&mut self, ctx: &egui::Context) {
+    fn draw_bottom_panel(&mut self, ctx: &Context) {
         eframe::egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.add_space(self.bottom_panel.space);
@@ -137,7 +139,7 @@ impl eframe::App for TemplateApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| self.menu(ui, frame));
 
         let dummy = Event::default();
