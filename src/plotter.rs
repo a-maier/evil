@@ -43,7 +43,7 @@ const X_AXIS_LABEL_OFFSET: i32 = 25;
 const Y_AXIS_LABEL_OFFSET: i32 = 30;
 const TICK_LABEL_OFFSET: i32 = 7;
 
-const BOX_CORNER: (f64, f64) = (3., 3.);
+const BOX_CORNER: (f64, f64) = (0.05, 0.05);
 const CIRCLE_SIZE: i32 = 3;
 
 const LEGEND_X_POS: f64 = 4.;
@@ -674,7 +674,7 @@ impl Plotter {
         particle_id: ParticleID,
         centre: (f64, f64)
     ) {
-        let fill_col = self.get_particle_colour(particle_id.abs());
+        let col = self.get_particle_colour(particle_id.abs());
         let name = particle_id.name();
         match spin_type(particle_id) {
             SpinType::Boson => {
@@ -685,7 +685,8 @@ impl Plotter {
                     sub(centre, BOX_CORNER),
                     add(centre, BOX_CORNER)
                 ];
-                let rectangle = rectangle(coord).fill_color(fill_col);
+                let rectangle = rectangle(coord)
+                    .fill_color(col);
                 let rectangle = if let Some(name) = particle_id.name() {
                     rectangle.name(name)
                 } else {
@@ -786,7 +787,7 @@ fn rectangle(coord: [(f64, f64); 2]) -> egui_plot::Polygon {
         [coord[0].0, coord[0].1],
         [coord[1].0, coord[0].1],
         [coord[1].0, coord[1].1],
-        [coord[1].0, coord[0].1],
+        [coord[0].0, coord[1].1],
     ])
 }
 
