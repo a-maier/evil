@@ -6,6 +6,7 @@ use std::thread::{self, JoinHandle};
 
 use crate::event::Event;
 
+use egui::ViewportCommand;
 use event_file_reader::EventFileReader as Reader;
 
 pub struct EventLoader {
@@ -34,7 +35,7 @@ impl eframe::App for EventLoader {
     fn save(&mut self, _storage: &mut dyn eframe::Storage) {
     }
 
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.worker.is_none() {
             let file = self.file.clone();
             let ctx: egui::Context = ctx.clone();
@@ -52,7 +53,7 @@ impl eframe::App for EventLoader {
         if self.worker_is_finished.load(Ordering::Relaxed) {
             let worker = self.worker.take().unwrap();
             let _ = worker.join();
-            frame.close();
+            ctx.send_viewport_cmd(ViewportCommand::Close);
         }
         egui::CentralPanel::default().show(ctx, |ui| {
            ui.heading(format!("Loading events from {}", self.file.display()));

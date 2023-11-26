@@ -686,8 +686,9 @@ impl Plotter {
                     add(centre, BOX_CORNER)
                 ];
                 let rectangle = rectangle(coord)
+                    .color(col)
                     .fill_color(col);
-                let rectangle = if let Some(name) = particle_id.name() {
+                let rectangle = if let Some(name) = name {
                     rectangle.name(name)
                 } else {
                     rectangle

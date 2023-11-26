@@ -1,4 +1,4 @@
-use egui::Context;
+use egui::{Context, ViewportCommand};
 
 use crate::event::Event;
 use crate::plotter::Plotter;
@@ -67,6 +67,7 @@ impl TemplateApp {
 
     fn menu(
         &mut self,
+        ctx: &Context,
         ui: &mut egui::Ui,
         frame: &mut eframe::Frame,
     ) {
@@ -74,7 +75,7 @@ impl TemplateApp {
             #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
             ui.menu_button("File", |ui| {
                 if ui.button("Quit").clicked() {
-                    frame.close();
+                    ctx.send_viewport_cmd(ViewportCommand::Close);
                 }
             });
             ui.menu_button("Settings", |ui| {
@@ -140,7 +141,7 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| self.menu(ui, frame));
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| self.menu(ctx, ui, frame));
 
         let dummy = Event::default();
         let event = if self.events.is_empty() {

@@ -10,25 +10,25 @@ categories = ["science"]
 repository = "https://github.com/a-maier/evil"
 
 [dependencies]
-egui = { version = "0.23.0", features = ["serde"] }
-eframe = { version = "0.23.0", default-features = false, features = [
+egui = { version = "0.24.0", features = ["serde"] }
+eframe = { version = "0.24.0", default-features = false, features = [
     "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
     "persistence",   # Enable restoring app state when restarting the app.
 ] }
+egui_plot = "0.24.0"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
-egui_plot = "0.23.0"
 plotters = "0.3.5"
 anyhow = "1.0.75"
-jetty = "0.3.2"
+jetty = "0.4.1"
 lazy_static = "1.4.0"
 num-traits = "0.2.16"
 strum = { version = "0.25.0", features = ["derive"] }
-event-file-reader = { version = "0.1.0", features = ["bzip2", "lz4_flex"] }
+event-file-reader = { version = "0.2.0", features = ["bzip2", "lz4_flex"] }
 particle_id = "0.4.0"
-avery = "0.4.1"
+avery = "0.5.0"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
