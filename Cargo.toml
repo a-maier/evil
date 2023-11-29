@@ -26,9 +26,9 @@ jetty = "0.4.1"
 lazy_static = "1.4.0"
 num-traits = "0.2.16"
 strum = { version = "0.25.0", features = ["derive"] }
-event-file-reader = { version = "0.2.0", features = ["bzip2", "lz4_flex"] }
-particle_id = "0.4.0"
-avery = "0.5.0"
+event-file-reader = { version = "0.3.0", features = ["bzip2", "lz4_flex"] }
+particle_id = "0.5.0"
+avery = "0.6.0"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

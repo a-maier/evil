@@ -230,7 +230,6 @@ impl Plotter {
             .show(ui, |ui| {
                 for particle in &event.out {
                     self.draw_y_logpt(ui, particle);
-                    // legend_ids.insert(particle.id);
                 }
                 for jet in jets {
                     self.draw_y_logpt_jet(ui, jet);
@@ -676,7 +675,7 @@ impl Plotter {
         use egui_plot::MarkerShape::*;
         let col = self.get_particle_colour(particle_id.abs());
         let mut pt = Points::new(centre).color(col).radius(3.).highlight(true);
-        if let Some(name) = particle_id.name() {
+        if let Some(name) = particle_id.symbol() {
             pt = pt.name(name);
         }
         let shape = match spin_type(particle_id) {
