@@ -694,9 +694,14 @@ impl Plotter {
         let Particle {id, y, phi, ..} = particle;
 
         debug!("Drawing particle {} at (y, φ) = ({y}, {phi})", id.id());
-        let centre = [y_to_coord(*y), *phi / PHI_SCALE];
-        self.draw_particle_at(ui, *id, centre);
-        // TODO: repeat at +- 2*pi in visible region
+        let mut phi_min = ui.plot_bounds().min()[1].floor() as i64;
+        phi_min -= phi_min % 4;
+        let phi_max = ui.plot_bounds().max()[1];
+        let mut centre = [y_to_coord(*y), phi_min as f64 + *phi / PHI_SCALE];
+        while centre[1] < phi_max {
+            self.draw_particle_at(ui, *id, centre);
+            centre[1] += 4.0
+        }
     }
 
     fn draw_y_phi_jet(
