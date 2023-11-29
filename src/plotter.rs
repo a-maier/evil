@@ -10,8 +10,8 @@ use std::f64::consts::PI;
 use std::ops::{Range, RangeInclusive};
 
 use anyhow::Result;
-use egui::Ui;
-use egui_plot::{Plot, PlotPoints, Legend};
+use egui::{Ui, Stroke};
+use egui_plot::{Plot, PlotPoints, Legend, Points};
 use jetty::PseudoJet;
 use lazy_static::lazy_static;
 use num_traits::float::Float;
@@ -196,7 +196,6 @@ impl Plotter {
             .show(ui, |ui| {
                 for particle in &event.out {
                     self.draw_y_phi(ui, particle);
-                    // legend_ids.insert(particle.id);
                 }
                 for jet in jets {
                     self.draw_y_phi_jet(ui, jet);
@@ -672,33 +671,20 @@ impl Plotter {
         &self,
         ui: &mut egui_plot::PlotUi,
         particle_id: ParticleID,
-        centre: (f64, f64)
+        centre: [f64; 2]
     ) {
+        use egui_plot::MarkerShape::*;
         let col = self.get_particle_colour(particle_id.abs());
-        let name = particle_id.name();
-        match spin_type(particle_id) {
-            SpinType::Boson => {
-                // TODO: circle
-            },
-            SpinType::Fermion => {
-                let coord = [
-                    sub(centre, BOX_CORNER),
-                    add(centre, BOX_CORNER)
-                ];
-                let rectangle = rectangle(coord)
-                    .color(col)
-                    .fill_color(col);
-                let rectangle = if let Some(name) = name {
-                    rectangle.name(name)
-                } else {
-                    rectangle
-                };
-                ui.polygon(rectangle);
-            },
-            _ => {
-                // TODO: triangle
-            }
+        let mut pt = Points::new(centre).color(col).radius(3.).highlight(true);
+        if let Some(name) = particle_id.name() {
+            pt = pt.name(name);
         }
+        let shape = match spin_type(particle_id) {
+            SpinType::Boson => Circle,
+            SpinType::Fermion => Square,
+            _ => Asterisk,
+        };
+        ui.points(pt.shape(shape));
     }
 
     fn draw_y_phi(
@@ -709,7 +695,7 @@ impl Plotter {
         let Particle {id, y, phi, ..} = particle;
 
         debug!("Drawing particle {} at (y, φ) = ({y}, {phi})", id.id());
-        let centre = (y_to_coord(*y), *phi / PHI_SCALE);
+        let centre = [y_to_coord(*y), *phi / PHI_SCALE];
         self.draw_particle_at(ui, *id, centre);
         // TODO: repeat at +- 2*pi in visible region
     }
@@ -761,7 +747,7 @@ impl Plotter {
     ) {
         let Particle { id, y, pt, .. } = particle;
         debug!("Drawing particle {} at (y, log(pt)) = ({y}, {})", id.id(), pt.log10());
-        let centre = (y_to_coord(*y), pt.log10());
+        let centre = [y_to_coord(*y), pt.log10()];
         self.draw_particle_at(ui, *id, centre);
     }
 
