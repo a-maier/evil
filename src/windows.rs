@@ -1,13 +1,16 @@
 use std::ops::Range;
 
-use egui::Context;
+use egui::{Context, DragValue};
 use jetty::PseudoJet;
 use lazy_static::lazy_static;
+use particle_id::ParticleID;
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 
 use crate::event::Event;
 use crate::font::{Font, FontFamily, FontStyle};
-use crate::plotter::Plotter;
+use crate::particle::Particle;
+use crate::plotter::{self, Plotter};
 
 lazy_static!{
     static ref FONT_NAMES: Vec<String> = {
@@ -41,11 +44,11 @@ impl YLogPtWin {
     pub(crate) fn show(
         &mut self,
         ctx: &egui::Context,
-        plotter: &Plotter,
+        plotter: &mut Plotter,
         event: &Event,
         jets: &[PseudoJet],
-    ) {
-        if !self.is_open { return }
+    ) -> Option<Particle> {
+        if !self.is_open { return None }
 
         egui::Window::new("YLogPtWin")
             .title_bar(true)
@@ -57,8 +60,9 @@ impl YLogPtWin {
                     event,
                     jets,
                     self.logpt.clone(),
-                );
-            });
+                )
+            }).map(|e| e.inner.flatten()).flatten()
+
     }
 }
 
@@ -81,11 +85,11 @@ impl YPhiWin {
     pub(crate) fn show(
         &mut self,
         ctx: &egui::Context,
-        plotter: &Plotter,
+        plotter: &mut Plotter,
         event: &Event,
         jets: &[PseudoJet],
-    ) {
-        if !self.is_open { return }
+    ) -> Option<Particle> {
+        if !self.is_open { return None }
 
         egui::Window::new("YPhiWin")
             .title_bar(true)
@@ -96,8 +100,8 @@ impl YPhiWin {
                     ui,
                     event,
                     &jets,
-                );
-            });
+                )
+            }).map(|e| e.inner.flatten()).flatten()
     }
 }
 
@@ -141,11 +145,70 @@ impl DetectorWin {
 }
 
 #[derive(Deserialize, Serialize)]
+pub(crate) struct ParticleStyleChoiceWin {
+    pub(crate) is_open: bool,
+    pub(crate) id: ParticleID,
+}
+
+impl ParticleStyleChoiceWin {
+    pub(crate) fn show(
+        &mut self,
+        ctx: &Context,
+        settings: &mut plotter::Settings
+    ) {
+        let name = self.id.name().or(self.id.symbol());
+        let title = if let Some(name) = name {
+            format!("Plot style for {name}")
+        } else {
+            format!("Plot style for particle id {}", self.id.id())
+        };
+        let mut is_open = self.is_open;
+        egui::Window::new(title)
+            .open(&mut is_open)
+            .title_bar(true)
+            .show(ctx, |ui| {
+                let style = settings.get_particle_style_mut(self.id);
+                ui.horizontal(|ui| {
+                    ui.color_edit_button_srgba(&mut style.colour);
+                    ui.label("Marker colour");
+                });
+                ui.horizontal(|ui| {
+                    egui::ComboBox::from_id_source("Shape")
+                        .selected_text(style.shape.to_string())
+                        .show_ui(ui, |ui| {
+                            for shape in crate::plotter::MarkerShape::iter() {
+                                ui.selectable_value(
+                                    &mut style.shape,
+                                    shape,
+                                    shape.to_string(),
+                                );
+                            }
+                        });
+                    ui.label("Marker shape");
+                });
+                ui.horizontal(|ui| {
+                    ui.add(DragValue::new(&mut style.size));
+                    ui.label("Marker size");
+                });
+            });
+        self.is_open = is_open;
+    }
+}
+
+impl Default for ParticleStyleChoiceWin {
+    fn default() -> Self {
+        Self {
+            is_open: false,
+            id: ParticleID::new(0),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
 #[derive(Clone, Default, Debug, PartialEq, PartialOrd)]
 pub struct PlotterSettings {
     pub is_open: bool,
     pub font: Font,
-    // pub colour: ColourSettings,
 }
 
 impl PlotterSettings {

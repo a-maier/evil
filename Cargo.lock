@@ -2194,6 +2194,9 @@ name = "particle_id"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f23a9aba80f3fe9d6f5b568468157f34476aae27ebc85941ebbab0510e0977d"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "paste"

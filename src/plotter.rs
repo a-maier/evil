@@ -12,13 +12,13 @@ use anyhow::Result;
 use egui::{Ui, Stroke};
 use egui_plot::{Plot, Legend, Points};
 use jetty::PseudoJet;
-use lazy_static::lazy_static;
 use num_traits::float::Float;
 use particle_id::ParticleID;
 use plotters::prelude::*;
 use plotters::coord::Shift;
 use log::debug;
 use serde::{Deserialize, Serialize};
+use strum::{EnumIter, Display};
 
 const PHI_SCALE: f64 = PI / 2.;
 const PHI_AXIS_MIN: f64 = -2.2;
@@ -28,48 +28,145 @@ const Y_MAX: f64 = 5.;
 const Y_AXIS_MIN: f64 = 1.1 * Y_MIN;
 const Y_AXIS_MAX: f64 = 1.1 * Y_MAX;
 
-lazy_static!{
-    static ref CYAN: egui::Color32 = egui::Color32::from_rgb(0, 159, 223);
-    static ref ORANGE: egui::Color32 = egui::Color32::from_rgb(241, 143, 31);
-    static ref MAGENTA: egui::Color32 = egui::Color32::from_rgb(255, 0, 255);
-    static ref PINK: egui::Color32 = egui::Color32::from_rgb(200, 127, 200);
-    static ref VIOLET: egui::Color32 = egui::Color32::from_rgb(82, 0, 127);
-    static ref GREY: egui::Color32 = egui::Color32::from_rgb(160, 160, 160);
-    static ref DARK_GREY: egui::Color32 = egui::Color32::from_rgb(80, 80, 80);
+#[derive(Copy, Clone, PartialEq, Debug, Deserialize, Serialize)]
+pub struct ParticleStyle {
+    pub colour: egui::Color32,
+    pub shape: MarkerShape,
+    pub size: f32,
+}
+
+impl ParticleStyle {
+    pub fn default_for(p: ParticleID) -> Self {
+        const DEFAULT_MARKER_SIZE: f32 = 3.;
+        Self {
+            colour: default_colour_for(p),
+            shape: default_shape_for(p),
+            size: DEFAULT_MARKER_SIZE
+        }
+    }
+}
+
+fn default_shape_for(p: ParticleID) -> MarkerShape {
+    use MarkerShape::*;
+    match spin_type(p) {
+        SpinType::Boson => Circle,
+        SpinType::Fermion => if p.is_anti_particle() {
+            Diamond
+        } else {
+            Square
+        },
+        _ => Asterisk,
+    }
+}
+
+fn default_colour_for(p: ParticleID) -> egui::Color32 {
+    const CYAN: egui::Color32 = egui::Color32::from_rgb(0, 159, 223);
+    const ORANGE: egui::Color32 = egui::Color32::from_rgb(241, 143, 31);
+    const MAGENTA: egui::Color32 = egui::Color32::from_rgb(255, 0, 255);
+    const PINK: egui::Color32 = egui::Color32::from_rgb(200, 127, 200);
+    const VIOLET: egui::Color32 = egui::Color32::from_rgb(82, 0, 127);
+    const GREY: egui::Color32 = egui::Color32::from_rgb(160, 160, 160);
+    const DARK_GREY: egui::Color32 = egui::Color32::from_rgb(80, 80, 80);
+
+    const DEFAULT_COLOR: egui::Color32 = egui::Color32::GRAY;
+    use particle_id::sm_elementary_particles as sm;
+    match p {
+        sm::down =>  CYAN,
+        sm::up =>  PINK,
+        sm::strange =>  egui::Color32::BLUE,
+        sm::charm =>  MAGENTA,
+        sm::bottom =>  egui::Color32::DARK_BLUE,
+        sm::top =>  VIOLET,
+        sm::electron => egui::Color32::YELLOW,
+        sm::electron_neutrino => egui::Color32::WHITE,
+        sm::muon => ORANGE,
+        sm::muon_neutrino => GREY,
+        sm::tau => egui::Color32::BROWN,
+        sm::tau_neutrino => DARK_GREY,
+        sm::gluon => egui::Color32::BLUE,
+        sm::photon => egui::Color32::YELLOW,
+        sm::Z => egui::Color32::RED,
+        sm::W_plus => egui::Color32::DARK_GREEN,
+        sm::Higgs => egui::Color32::WHITE,
+        _ => DEFAULT_COLOR
+    }
+}
+
+// egui MarkerShape doesn't derive Deserialize/Serialize
+#[derive(Deserialize, Serialize)]
+#[derive(Display, EnumIter)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
+pub enum MarkerShape {
+    Circle,
+    Diamond,
+    Square,
+    Cross,
+    Plus,
+    Up,
+    Down,
+    Left,
+    Right,
+    Asterisk,
+}
+
+impl From<MarkerShape> for egui_plot::MarkerShape {
+    fn from(source: MarkerShape) -> Self {
+        match source {
+            MarkerShape::Circle => egui_plot::MarkerShape::Circle,
+            MarkerShape::Diamond => egui_plot::MarkerShape::Diamond,
+            MarkerShape::Square => egui_plot::MarkerShape::Square,
+            MarkerShape::Cross => egui_plot::MarkerShape::Cross,
+            MarkerShape::Plus => egui_plot::MarkerShape::Plus,
+            MarkerShape::Up => egui_plot::MarkerShape::Up,
+            MarkerShape::Down => egui_plot::MarkerShape::Down,
+            MarkerShape::Left => egui_plot::MarkerShape::Left,
+            MarkerShape::Right => egui_plot::MarkerShape::Right,
+            MarkerShape::Asterisk => egui_plot::MarkerShape::Asterisk,
+        }
+    }
+}
+
+impl From<egui_plot::MarkerShape> for MarkerShape {
+    fn from(source: egui_plot::MarkerShape) -> Self {
+        match source {
+            egui_plot::MarkerShape::Circle => MarkerShape::Circle,
+            egui_plot::MarkerShape::Diamond => MarkerShape::Diamond,
+            egui_plot::MarkerShape::Square => MarkerShape::Square,
+            egui_plot::MarkerShape::Cross => MarkerShape::Cross,
+            egui_plot::MarkerShape::Plus => MarkerShape::Plus,
+            egui_plot::MarkerShape::Up => MarkerShape::Up,
+            egui_plot::MarkerShape::Down => MarkerShape::Down,
+            egui_plot::MarkerShape::Left => MarkerShape::Left,
+            egui_plot::MarkerShape::Right => MarkerShape::Right,
+            egui_plot::MarkerShape::Asterisk => MarkerShape::Asterisk,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
-pub struct ColourSettings {
-    pub frame: egui::Color32,
-    pub background: egui::Color32,
-    pub particles: HashMap<i32, egui::Color32>,
+pub struct Settings {
+    // pub frame: egui::Color32,
+    // pub background: egui::Color32,
+    pub particles: HashMap<ParticleID, ParticleStyle>,
     pub jets: egui::Color32,
 }
+impl Settings {
+    pub fn get_particle_style(&mut self, pid: ParticleID) -> ParticleStyle {
+        *self.get_particle_style_mut(pid)
+    }
 
-impl Default for ColourSettings {
+    pub fn get_particle_style_mut(&mut self, pid: ParticleID) -> &mut ParticleStyle {
+        self.particles.entry(pid)
+            .or_insert_with(|| ParticleStyle::default_for(pid))
+    }
+}
+
+impl Default for Settings {
     fn default() -> Self {
         Self {
-            frame: egui::Color32::GRAY,
-            background: egui::Color32::TRANSPARENT,
-            particles: HashMap::from_iter([
-                (1,  *CYAN),
-                (2,  *PINK),
-                (3,  egui::Color32::BLUE),
-                (4,  *MAGENTA),
-                (5,  egui::Color32::DARK_BLUE),
-                (6,  *VIOLET),
-                (11, egui::Color32::YELLOW),
-                (12, egui::Color32::WHITE),
-                (13, *ORANGE),
-                (14, *GREY),
-                (15, egui::Color32::BROWN),
-                (16, *DARK_GREY),
-                (21, egui::Color32::BLUE),
-                (22, egui::Color32::YELLOW),
-                (23, egui::Color32::RED),
-                (24, egui::Color32::DARK_GREEN),
-                (25, egui::Color32::WHITE),
-            ]),
+            // frame: egui::Color32::GRAY,
+            // background: egui::Color32::TRANSPARENT,
+            particles: HashMap::default(),
             jets: egui::Color32::from_rgba_premultiplied(130, 130, 130, 80),
         }
     }
@@ -105,7 +202,7 @@ pub struct Plotter {
 
     pub font: Font,
 
-    pub colour: ColourSettings,
+    pub settings: Settings,
     pub settings_3d: Settings3D,
 }
 
@@ -115,11 +212,12 @@ impl Plotter {
     }
 
     pub fn plot_y_phi(
-        &self,
+        &mut self,
         ui: &mut Ui,
         event: &Event,
         jets: &[PseudoJet],
-    ) {
+    ) -> Option<Particle> {
+        let mut selected_particle = None;
         Plot::new("y phi plot")
             .include_x(Y_AXIS_MIN)
             .include_x(Y_AXIS_MAX)
@@ -137,22 +235,51 @@ impl Plotter {
                 format!("{name}\ny = {y:.2}\nφ = {phi:.2}")
             })
             .show(ui, |ui| {
-                for jet in jets {
-                    self.draw_y_phi_jet(ui, jet);
-                }
                 for particle in &event.out {
                     self.draw_y_phi(ui, particle);
                 }
+                for jet in jets {
+                    self.draw_y_phi_jet(ui, jet);
+                }
+                let response = ui.response();
+                if response.clicked() {
+                    // TODO: better account for zoom levels etc.
+                    let click_pos = response.interact_pointer_pos().unwrap();
+                    let click_pos = ui.plot_from_screen(click_pos).to_pos2();
+                    // TODO: periodicity
+                    debug!("Click at {click_pos:?}");
+                    let mut closest_dist = f32::MAX;
+                    let Some(mut closest) = event.out.first() else {
+                        return
+                    };
+                    for particle in event.out.iter() {
+                        let y_coord = y_to_coord(particle.y);
+                        let phi_coord = particle.phi / PHI_SCALE;
+                        let pos = [y_coord  as f32, phi_coord as f32].into();
+                        let dist = click_pos.distance_sq(pos);
+                        if dist < closest_dist {
+                            closest_dist = dist;
+                            closest = particle;
+                        }
+                    }
+                    debug!("At distance^2 {closest_dist}: {closest:#?}");
+                    const MAX_DIST: f32 = 0.13;
+                    if closest_dist < MAX_DIST {
+                        selected_particle = Some(*closest);
+                    }
+                };
             });
+        selected_particle
     }
 
     pub fn plot_y_logpt(
-        &self,
+        &mut self,
         ui: &mut Ui,
         event: &Event,
         jets: &[PseudoJet],
         logpt_range: Range<f64>,
-    ) {
+    ) -> Option<Particle> {
+        let mut selected_particle = None;
         let logpt_start = logpt_range.start - 0.05 * logpt_range.start.abs();
         let logpt_end = logpt_range.end + 0.05 * logpt_range.end.abs();
         Plot::new("y logpt plot")
@@ -178,7 +305,34 @@ impl Plotter {
                 for particle in &event.out {
                     self.draw_y_logpt(ui, particle);
                 }
+                let response = ui.response();
+                if response.clicked() {
+                    // TODO: better account for zoom levels etc.
+                    let click_pos = response.interact_pointer_pos().unwrap();
+                    let click_pos = ui.plot_from_screen(click_pos).to_pos2();
+                    debug!("Click at {click_pos:?}");
+                    let mut closest_dist = f32::MAX;
+                    let Some(mut closest) = event.out.first() else {
+                        return
+                    };
+                    for particle in event.out.iter() {
+                        let y_coord = y_to_coord(particle.y);
+                        let pt_coord = particle.pt.log10();
+                        let pos = [y_coord  as f32, pt_coord as f32].into();
+                        let dist = click_pos.distance_sq(pos);
+                        if dist < closest_dist {
+                            closest_dist = dist;
+                            closest = particle;
+                        }
+                    }
+                    debug!("At distance^2 {closest_dist}: {closest:#?}");
+                    const MAX_DIST: f32 = 0.13;
+                    if closest_dist < MAX_DIST {
+                        selected_particle = Some(*closest);
+                    }
+                };
             });
+        selected_particle
     }
 
     pub fn plot_3d<D>(
@@ -252,34 +406,34 @@ impl Plotter {
         // Ok(root)
     }
 
-    fn get_particle_colour(&self, pid: ParticleID) -> egui::Color32 {
-        *self.colour.particles.get(
-            &pid.id().abs()
-        ).unwrap_or(&egui::Color32::GRAY)
+    pub(crate) fn get_particle_style(&mut self, pid: ParticleID) -> ParticleStyle {
+        self.settings.get_particle_style(pid)
     }
 
     fn draw_particle_at(
-        &self,
+        &mut self,
         ui: &mut egui_plot::PlotUi,
         particle_id: ParticleID,
         centre: [f64; 2]
     ) {
-        use egui_plot::MarkerShape::*;
-        let col = self.get_particle_colour(particle_id.abs());
-        let mut pt = Points::new(centre).color(col).radius(3.).highlight(true);
+        let ParticleStyle {
+            colour,
+            shape,
+            size,
+        } = self.get_particle_style(particle_id);
+        let mut pt = Points::new(centre)
+            .color(colour)
+            .radius(size)
+            .shape(shape.into())
+            .highlight(true);
         if let Some(name) = particle_id.symbol() {
             pt = pt.name(name);
         }
-        let shape = match spin_type(particle_id) {
-            SpinType::Boson => Circle,
-            SpinType::Fermion => Square,
-            _ => Asterisk,
-        };
-        ui.points(pt.shape(shape));
+        ui.points(pt);
     }
 
     fn draw_y_phi(
-        &self,
+        &mut self,
         ui: &mut egui_plot::PlotUi,
         particle: &Particle
     ) {
@@ -322,7 +476,8 @@ impl Plotter {
         ui: &mut egui_plot::PlotUi,
         centre: [f64; 2]
     ) {
-        let jet_col = self.colour.jets;
+        // TODO: fix shape depending on aspect ratio
+        let jet_col = self.settings.jets;
         let r = ui.screen_from_plot([self.r_jet, 0.0].into())[0]
             - ui.screen_from_plot([0.0, 0.0].into())[0];
         let pt = Points::new(centre)
@@ -335,7 +490,7 @@ impl Plotter {
     }
 
     fn draw_y_logpt(
-        &self,
+        &mut self,
         ui: &mut egui_plot::PlotUi,
         particle: &Particle
     ) {
@@ -352,7 +507,7 @@ impl Plotter {
     ) {
         debug!("Drawing jet at (y, log(pt)) = ({}, {})", jet.rap(), jet.pt2().log10()/2.);
         let centre = (y_to_coord(jet.rap().into()), (jet.pt2().log10()/2.).into());
-        let jet_col = self.colour.jets;
+        let jet_col = self.settings.jets;
         let pt_min = ui.plot_bounds().min()[1];
         let coord = [
             (y_to_coord(centre.0 - self.r_jet), pt_min),

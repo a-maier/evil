@@ -5,7 +5,7 @@ use log::{debug, trace};
 use crate::clustering::{ClusterSettings, cluster};
 use crate::event::Event;
 use crate::plotter::Plotter;
-use crate::windows::{PlotterSettings, DetectorWin, YPhiWin, YLogPtWin};
+use crate::windows::{PlotterSettings, DetectorWin, YPhiWin, YLogPtWin, ParticleStyleChoiceWin};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -18,6 +18,8 @@ pub struct TemplateApp {
     plotter: Plotter,
     plotter_settings: PlotterSettings,
     clustering: ClusterSettings,
+    #[serde(skip)]
+    particle_style_choice_win: ParticleStyleChoiceWin,
     #[serde(skip)]
     events: Vec<Event>,
     #[serde(skip)]
@@ -173,9 +175,20 @@ impl eframe::App for TemplateApp {
             self.plotter.font = self.plotter_settings.font.clone();
         }
 
-        self.y_log_pt.show(ctx, &self.plotter, event, &self.jets);
-        self.y_phi.show(ctx, &self.plotter, event, &self.jets);
-        self.detector.show(ctx, &self.plotter, event, &self.jets);
+        let selected = self.y_log_pt.show(ctx, &mut self.plotter, event, &self.jets);
+        if let Some(particle) = selected {
+            self.particle_style_choice_win.id = particle.id;
+            self.particle_style_choice_win.is_open = true;
+        }
+        let selected = self.y_phi.show(ctx, &mut self.plotter, event, &self.jets);
+        if let Some(particle) = selected {
+            self.particle_style_choice_win.id = particle.id;
+            self.particle_style_choice_win.is_open = true;
+        }
+
+        self.detector.show(ctx, &mut self.plotter, event, &self.jets);
+
+        self.particle_style_choice_win.show(ctx, &mut self.plotter.settings);
 
         if self.clustering.changed(ctx) {
             debug!("Clustering changed to {:?}", self.clustering);
