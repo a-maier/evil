@@ -1,4 +1,4 @@
-use egui::{Context, ViewportCommand};
+use egui::{Context, ViewportCommand, DragValue};
 use jetty::PseudoJet;
 use log::{debug, trace};
 
@@ -108,30 +108,22 @@ impl TemplateApp {
         eframe::egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.add_space(self.bottom_panel.space);
-                if ui.add(egui::Button::new("<-")).clicked() {
-                    // TODO
-                    //self.prev_img(frame)
+                let back_button = ui.add_enabled(self.event_idx > 0, egui::Button::new("<-"));
+                if back_button.clicked() {
+                    self.event_idx -= 1;
                 }
-                let width = 10. * (std::cmp::max(self.events.len(), 100) as f32).log10();
 
-                let response = ui.add(
-                    egui::TextEdit::singleline(&mut self.bottom_panel.ev_idx_str)
-                        .desired_width(width)
-                        // TODO
-                        //.text_color_opt(self.ev_idx_str_col)
+                let mut ev_nr = self.event_idx + 1;
+                ui.add(
+                    DragValue::new(&mut ev_nr)
+                        .clamp_range(1..=self.events.len())
+                        .suffix(format!("/{}", self.events.len()))
                 );
-                if response.changed() {
-                    match self.bottom_panel.ev_idx_str.parse::<usize>() {
-                        Ok(ev_idx) if ev_idx > 0 && ev_idx <= self.events.len() => {
-                            // TODO
-                            //self.update_ev(ev_idx - 1);
-                        },
-                        _ => { }
-                    };
-                }
-                ui.label(format!("/{}", self.events.len()));
-                if ui.add(eframe::egui::Button::new("->")).clicked() {
-                    // self.next_img(frame)
+                self.event_idx = ev_nr - 1;
+                let can_forward = 1 + self.event_idx < self.events.len();
+                let forward_button = ui.add_enabled(can_forward, egui::Button::new("->"));
+                if forward_button.clicked() {
+                    self.event_idx += 1;
                 }
                 self.bottom_panel.space = (
                     self.bottom_panel.space + ui.available_width()
