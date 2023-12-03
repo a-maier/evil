@@ -131,9 +131,10 @@ impl Plotter {
             .y_axis_formatter(phi_tick_label)
             .show_grid([false, false])
             .legend(Legend::default())
-            .label_formatter(|_name, val|{
-                let phi_coord = clamp_phi_coord(val.y);
-                format!("y = {:.2}\nφ = {:.2}", coord_to_y(val.x), phi_coord * PHI_SCALE)
+            .label_formatter(|name, val|{
+                let y = coord_to_y(val.x);
+                let phi = clamp_phi_coord(val.y) * PHI_SCALE;
+                format!("{name}\ny = {y:.2}\nφ = {phi:.2}")
             })
             .show(ui, |ui| {
                 for particle in &event.out {
@@ -165,9 +166,10 @@ impl Plotter {
             .y_axis_formatter(logpt_tick_label)
             .show_grid([false, false])
             .legend(Legend::default())
-            .label_formatter(|_name, val|{
-                // TODO: what is name?
-                format!("y = {:.2}\npT = {:.2}", coord_to_y(val.x), 10f64.powf(val.y))
+            .label_formatter(|name, val|{
+                let y = coord_to_y(val.x);
+                let pt = 10f64.powf(val.y);
+                format!("{name}\ny = {y:.2}\npT = {pt:.2}")
             })
             .show(ui, |ui| {
                 for particle in &event.out {
