@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use egui::Context;
+use jetty::PseudoJet;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +43,7 @@ impl YLogPtWin {
         ctx: &egui::Context,
         plotter: &Plotter,
         event: &Event,
+        jets: &[PseudoJet],
     ) {
         if !self.is_open { return }
 
@@ -53,7 +55,7 @@ impl YLogPtWin {
                 plotter.plot_y_logpt(
                     ui,
                     event,
-                    &[],
+                    jets,
                     self.logpt.clone(),
                 );
             });
@@ -81,6 +83,7 @@ impl YPhiWin {
         ctx: &egui::Context,
         plotter: &Plotter,
         event: &Event,
+        jets: &[PseudoJet],
     ) {
         if !self.is_open { return }
 
@@ -92,7 +95,7 @@ impl YPhiWin {
                 plotter.plot_y_phi(
                     ui,
                     event,
-                    &[],
+                    &jets,
                 );
             });
     }
@@ -117,6 +120,7 @@ impl DetectorWin {
         ctx: &egui::Context,
         plotter: &Plotter,
         event: &Event,
+        jets: &[PseudoJet],
     ) {
         if !self.is_open { return }
 

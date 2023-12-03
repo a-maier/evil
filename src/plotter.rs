@@ -9,7 +9,7 @@ use std::f64::consts::PI;
 use std::ops::{Range, RangeInclusive};
 
 use anyhow::Result;
-use egui::Ui;
+use egui::{Ui, Stroke};
 use egui_plot::{Plot, Legend, Points};
 use jetty::PseudoJet;
 use lazy_static::lazy_static;
@@ -137,11 +137,11 @@ impl Plotter {
                 format!("{name}\ny = {y:.2}\nφ = {phi:.2}")
             })
             .show(ui, |ui| {
-                for particle in &event.out {
-                    self.draw_y_phi(ui, particle);
-                }
                 for jet in jets {
                     self.draw_y_phi_jet(ui, jet);
+                }
+                for particle in &event.out {
+                    self.draw_y_phi(ui, particle);
                 }
             });
     }
@@ -172,11 +172,11 @@ impl Plotter {
                 format!("{name}\ny = {y:.2}\npT = {pt:.2}")
             })
             .show(ui, |ui| {
-                for particle in &event.out {
-                    self.draw_y_logpt(ui, particle);
-                }
                 for jet in jets {
                     self.draw_y_logpt_jet(ui, jet);
+                }
+                for particle in &event.out {
+                    self.draw_y_logpt(ui, particle);
                 }
             });
     }
@@ -301,39 +301,37 @@ impl Plotter {
         ui: &mut egui_plot::PlotUi,
         jet: &PseudoJet
     ) {
+        let y: f64 = jet.rap().into();
         let mut phi: f64 = jet.phi().into();
         if phi > PI {
-            phi -= 2.*PI;
+            phi -= 2.0 * PI;
         }
-        debug!("Drawing jet with radius {} at (y, φ) = ({}, {})", self.r_jet, jet.rap(), phi);
-        let centre = (y_to_coord(jet.rap().into()), phi / PHI_SCALE);
-        self.draw_jet_circle(ui, centre);
-        // TODO: repeat at +- 2*pi in visible region
+        debug!("Drawing jet with radius {} at (y, φ) = ({y}, {phi})", self.r_jet);
+        let mut phi_min = ui.plot_bounds().min()[1].floor() as i64;
+        phi_min -= phi_min % 4;
+        let phi_max = ui.plot_bounds().max()[1];
+        let mut centre = [y_to_coord(y), phi_min as f64 + phi / PHI_SCALE];
+        while centre[1] < phi_max {
+            self.draw_jet_circle(ui, centre);
+            centre[1] += 4.0
+        }
     }
 
     fn draw_jet_circle(
         &self,
         ui: &mut egui_plot::PlotUi,
-        centre: (f64, f64)
+        centre: [f64; 2]
     ) {
-        todo!()
-        // let jet_col = to_plotters_col(self.colour.jets);
-        // chart.draw_series(
-        //     AreaSeries::new(
-        //         (0..101).map(
-        //             |x| {
-        //                 let x = x as f64;
-        //                 let phi = x*2.*PI / 100.;
-        //                 (
-        //                     y_to_coord(centre.0 + self.r_jet*phi.cos()),
-        //                     centre.1 + self.r_jet*phi.sin()
-        //                 )
-        //             }
-        //         ),
-        //         0.,
-        //         ShapeStyle::from(jet_col).filled()
-        //     )
-        // ).unwrap();
+        let jet_col = self.colour.jets;
+        let r = ui.screen_from_plot([self.r_jet, 0.0].into())[0]
+            - ui.screen_from_plot([0.0, 0.0].into())[0];
+        let pt = Points::new(centre)
+            .color(jet_col)
+            .radius(r)
+            .highlight(true)
+            .name("jet")
+            .shape(egui_plot::MarkerShape::Circle);
+        ui.points(pt);
     }
 
     fn draw_y_logpt(
@@ -355,11 +353,14 @@ impl Plotter {
         debug!("Drawing jet at (y, log(pt)) = ({}, {})", jet.rap(), jet.pt2().log10()/2.);
         let centre = (y_to_coord(jet.rap().into()), (jet.pt2().log10()/2.).into());
         let jet_col = self.colour.jets;
+        let pt_min = ui.plot_bounds().min()[1];
         let coord = [
-            (y_to_coord(centre.0 - self.r_jet), f64::MIN),
+            (y_to_coord(centre.0 - self.r_jet), pt_min),
             (y_to_coord(centre.0 + self.r_jet), centre.1),
         ];
-        let rectangle = rectangle(coord).fill_color(jet_col);
+        let rectangle = rectangle(coord)
+            .stroke(Stroke::new(0.0, jet_col))
+            .fill_color(jet_col);
         ui.polygon(rectangle);
     }
 

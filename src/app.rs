@@ -1,5 +1,8 @@
 use egui::{Context, ViewportCommand};
+use jetty::PseudoJet;
+use log::{debug, trace};
 
+use crate::clustering::{ClusterSettings, cluster};
 use crate::event::Event;
 use crate::plotter::Plotter;
 use crate::windows::{PlotterSettings, DetectorWin, YPhiWin, YLogPtWin};
@@ -14,8 +17,11 @@ pub struct TemplateApp {
     detector: DetectorWin,
     plotter: Plotter,
     plotter_settings: PlotterSettings,
+    clustering: ClusterSettings,
     #[serde(skip)]
     events: Vec<Event>,
+    #[serde(skip)]
+    jets: Vec<PseudoJet>,
     #[serde(skip)]
     event_idx: usize,
     #[serde(skip)]
@@ -59,10 +65,12 @@ impl TemplateApp {
             return res;
         }
 
-        Self{
+        let mut res = Self{
             events,
             ..Default::default()
-        }
+        };
+        res.recluster();
+        res
     }
 
     fn menu(
@@ -79,9 +87,9 @@ impl TemplateApp {
                 }
             });
             ui.menu_button("Settings", |ui| {
-                // if ui.button("Jet clustering").clicked() {
-                //     self.clustering_settings.open = true;
-                // }
+                if ui.button("Jet clustering").clicked() {
+                    self.clustering.is_open = true;
+                }
                 if ui.button("Plotting").clicked() {
                     self.plotter_settings.is_open = true;
                 }
@@ -130,6 +138,19 @@ impl TemplateApp {
         });
     }
 
+    fn recluster(&mut self) {
+        if !self.clustering.clustering_enabled {
+            self.jets.clear();
+            return;
+        }
+        if let Some(event) = self.events.get(self.event_idx) {
+            self.jets = cluster(event, &self.clustering.jet_def);
+        } else {
+            self.jets.clear()
+        }
+        self.plotter.r_jet = self.clustering.jet_def.radius;
+        trace!("recluster: {:#?}", self.jets);
+    }
 }
 
 impl eframe::App for TemplateApp {
@@ -141,22 +162,24 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+        self.recluster();
+
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| self.menu(ctx, ui, frame));
 
         let dummy = Event::default();
-        let event = if self.events.is_empty() {
-            &dummy
-        } else {
-            &self.events[self.event_idx]
-        };
+        let event = &self.events.get(self.event_idx).unwrap_or(&dummy);
 
         if self.plotter_settings.changed(ctx) {
             self.plotter.font = self.plotter_settings.font.clone();
         }
 
-        self.y_log_pt.show(ctx, &self.plotter, event);
-        self.y_phi.show(ctx, &self.plotter, event);
-        self.detector.show(ctx, &self.plotter, event);
+        self.y_log_pt.show(ctx, &self.plotter, event, &self.jets);
+        self.y_phi.show(ctx, &self.plotter, event, &self.jets);
+        self.detector.show(ctx, &self.plotter, event, &self.jets);
+
+        if self.clustering.changed(ctx) {
+            debug!("Clustering changed to {:?}", self.clustering);
+        }
 
         self.draw_bottom_panel(ctx);
     }
