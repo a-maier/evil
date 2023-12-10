@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use egui::{Context, DragValue};
+use egui::{Context, DragValue, Pos2};
 use jetty::PseudoJet;
 use lazy_static::lazy_static;
 use particle_id::ParticleID;
@@ -148,6 +148,7 @@ impl DetectorWin {
 pub(crate) struct ParticleStyleChoiceWin {
     pub(crate) is_open: bool,
     pub(crate) id: ParticleID,
+    pos: Option<Pos2>,
 }
 
 impl ParticleStyleChoiceWin {
@@ -163,35 +164,42 @@ impl ParticleStyleChoiceWin {
             format!("Plot style for particle id {}", self.id.id())
         };
         let mut is_open = self.is_open;
-        egui::Window::new(title)
+        let mut win = egui::Window::new(title)
             .open(&mut is_open)
-            .title_bar(true)
-            .show(ctx, |ui| {
-                let style = settings.get_particle_style_mut(self.id);
-                ui.horizontal(|ui| {
-                    ui.color_edit_button_srgba(&mut style.colour);
-                    ui.label("Marker colour");
-                });
-                ui.horizontal(|ui| {
-                    egui::ComboBox::from_id_source("Shape")
-                        .selected_text(style.shape.to_string())
-                        .show_ui(ui, |ui| {
-                            for shape in crate::plotter::MarkerShape::iter() {
-                                ui.selectable_value(
-                                    &mut style.shape,
-                                    shape,
-                                    shape.to_string(),
-                                );
-                            }
-                        });
-                    ui.label("Marker shape");
-                });
-                ui.horizontal(|ui| {
-                    ui.add(DragValue::new(&mut style.size));
-                    ui.label("Marker size");
-                });
+            .title_bar(true);
+        if let Some(pos) = self.pos.take() {
+            win = win.current_pos(pos);
+        }
+        win.show(ctx, |ui| {
+            let style = settings.get_particle_style_mut(self.id);
+            ui.horizontal(|ui| {
+                ui.color_edit_button_srgba(&mut style.colour);
+                ui.label("Marker colour");
             });
+            ui.horizontal(|ui| {
+                egui::ComboBox::from_id_source("Shape")
+                    .selected_text(style.shape.to_string())
+                    .show_ui(ui, |ui| {
+                        for shape in crate::plotter::MarkerShape::iter() {
+                            ui.selectable_value(
+                                &mut style.shape,
+                                shape,
+                                shape.to_string(),
+                            );
+                        }
+                    });
+                ui.label("Marker shape");
+            });
+            ui.horizontal(|ui| {
+                ui.add(DragValue::new(&mut style.size));
+                ui.label("Marker size");
+            });
+        });
         self.is_open = is_open;
+    }
+
+    pub(crate) fn set_pos(&mut self, pos: Option<Pos2>) {
+        self.pos = pos;
     }
 }
 
@@ -200,6 +208,7 @@ impl Default for ParticleStyleChoiceWin {
         Self {
             is_open: false,
             id: ParticleID::new(0),
+            pos: None,
         }
     }
 }

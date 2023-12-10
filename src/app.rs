@@ -167,14 +167,11 @@ impl eframe::App for TemplateApp {
             self.plotter.font = self.plotter_settings.font.clone();
         }
 
-        let selected = self.y_log_pt.show(ctx, &mut self.plotter, event, &self.jets);
-        if let Some(particle) = selected {
+        let selected_logpt = self.y_log_pt.show(ctx, &mut self.plotter, event, &self.jets);
+        let selected_phi = self.y_phi.show(ctx, &mut self.plotter, event, &self.jets);
+        if let Some(particle) = selected_logpt.or(selected_phi) {
             self.particle_style_choice_win.id = particle.id;
-            self.particle_style_choice_win.is_open = true;
-        }
-        let selected = self.y_phi.show(ctx, &mut self.plotter, event, &self.jets);
-        if let Some(particle) = selected {
-            self.particle_style_choice_win.id = particle.id;
+            self.particle_style_choice_win.set_pos(ctx.pointer_interact_pos());
             self.particle_style_choice_win.is_open = true;
         }
 
