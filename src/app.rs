@@ -53,6 +53,38 @@ impl TemplateApp {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
+        // Start with the default fonts (we will be adding to them rather than replacing them).
+        let mut fonts = egui::FontDefinitions::default();
+
+        // Install my own font (maybe supporting non-latin characters).
+        // .ttf and .otf files supported.
+        fonts.font_data.insert(
+            "DejaVuSans".to_owned(),
+            egui::FontData::from_static(include_bytes!("../fonts/DejaVuSans.ttf")),
+        );
+        fonts.font_data.insert(
+            "DejaVuSansMono".to_owned(),
+            egui::FontData::from_static(include_bytes!("../fonts/DejaVuSansMono.ttf")),
+        );
+
+        // Put my font first (highest priority) for proportional text:
+        fonts
+            .families
+            .entry(egui::FontFamily::Proportional)
+            .or_default()
+            .insert(0, "DejaVuSans".to_owned());
+
+        // Put my font as last fallback for monospace:
+        fonts
+            .families
+            .entry(egui::FontFamily::Monospace)
+            .or_default()
+            .insert(0, "DejaVuSansMono".to_owned());
+
+        // Tell egui to use these fonts:
+        cc.egui_ctx.set_fonts(fonts);
+
+
         // Disable feathering as it allegedly causes artifacts
         let context = &cc.egui_ctx;
 
@@ -108,7 +140,8 @@ impl TemplateApp {
         eframe::egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.add_space(self.bottom_panel.space);
-                let back_button = ui.add_enabled(self.event_idx > 0, egui::Button::new("<-"));
+                // TODO: use black arrows, but the rightwards one is missing in DejaVu
+                let back_button = ui.add_enabled(self.event_idx > 0, egui::Button::new("⇦"));
                 if back_button.clicked() {
                     self.event_idx -= 1;
                 }
@@ -121,7 +154,7 @@ impl TemplateApp {
                 );
                 self.event_idx = ev_nr - 1;
                 let can_forward = 1 + self.event_idx < self.events.len();
-                let forward_button = ui.add_enabled(can_forward, egui::Button::new("->"));
+                let forward_button = ui.add_enabled(can_forward, egui::Button::new("⇨"));
                 if forward_button.clicked() {
                     self.event_idx += 1;
                 }
