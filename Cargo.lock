@@ -986,6 +986,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_file"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04989cc1638c8c1c9e7347180a90bc58a5ae9c2236668a6bd927df0e185ff47b"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "egui_glow"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1173,6 +1182,7 @@ dependencies = [
  "avery",
  "eframe",
  "egui",
+ "egui_file",
  "egui_plot",
  "env_logger",
  "event-file-reader",

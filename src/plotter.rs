@@ -9,7 +9,7 @@ use std::f64::consts::PI;
 use std::ops::{Range, RangeInclusive};
 
 use anyhow::Result;
-use egui::{Ui, Stroke};
+use egui::{Ui, Stroke, Response};
 use egui_plot::{Plot, Legend, Points};
 use jetty::PseudoJet;
 use num_traits::float::Float;
@@ -216,8 +216,9 @@ impl Plotter {
         ui: &mut Ui,
         event: &Event,
         jets: &[PseudoJet],
-    ) -> Option<Particle> {
-        let mut selected_particle = None;
+    ) -> Option<PlotResponse> {
+        use PlotResponse::*;
+        let mut response = None;
         Plot::new("y phi plot")
             .include_x(Y_AXIS_MIN)
             .include_x(Y_AXIS_MAX)
@@ -241,10 +242,10 @@ impl Plotter {
                 for jet in jets {
                     self.draw_y_phi_jet(ui, jet);
                 }
-                let response = ui.response();
-                if response.clicked() {
+                let ui_response = ui.response();
+                if ui_response.clicked() {
                     // TODO: better account for zoom levels etc.
-                    let click_pos = response.interact_pointer_pos().unwrap();
+                    let click_pos = ui_response.interact_pointer_pos().unwrap();
                     let click_pos = ui.plot_from_screen(click_pos).to_pos2();
                     // TODO: periodicity
                     debug!("Click at {click_pos:?}");
@@ -265,11 +266,19 @@ impl Plotter {
                     debug!("At distance^2 {closest_dist}: {closest:#?}");
                     const MAX_DIST: f32 = 0.13;
                     if closest_dist < MAX_DIST {
-                        selected_particle = Some(*closest);
+                        response = Some(Selected(*closest));
                     }
-                };
+                } else {
+                    ui_response.clone().context_menu(|ui| {
+                        response = export_menu(ui).map(
+                            |format| PlotResponse::Export {
+                                kind: PlotKind::YPhi,
+                                format
+                            });
+                    });
+                }
             });
-        selected_particle
+        response
     }
 
     pub fn plot_y_logpt(
@@ -278,8 +287,9 @@ impl Plotter {
         event: &Event,
         jets: &[PseudoJet],
         logpt_range: Range<f64>,
-    ) -> Option<Particle> {
-        let mut selected_particle = None;
+    ) -> Option<PlotResponse> {
+        use PlotResponse::*;
+        let mut response = None;
         let logpt_start = logpt_range.start - 0.05 * logpt_range.start.abs();
         let logpt_end = logpt_range.end + 0.05 * logpt_range.end.abs();
         Plot::new("y logpt plot")
@@ -305,10 +315,10 @@ impl Plotter {
                 for particle in &event.out {
                     self.draw_y_logpt(ui, particle);
                 }
-                let response = ui.response();
-                if response.clicked() {
+                let ui_response = ui.response();
+                if ui_response.clicked() {
                     // TODO: better account for zoom levels etc.
-                    let click_pos = response.interact_pointer_pos().unwrap();
+                    let click_pos = ui_response.interact_pointer_pos().unwrap();
                     let click_pos = ui.plot_from_screen(click_pos).to_pos2();
                     debug!("Click at {click_pos:?}");
                     let mut closest_dist = f32::MAX;
@@ -328,11 +338,19 @@ impl Plotter {
                     debug!("At distance^2 {closest_dist}: {closest:#?}");
                     const MAX_DIST: f32 = 0.13;
                     if closest_dist < MAX_DIST {
-                        selected_particle = Some(*closest);
+                        response = Some(Selected(*closest));
                     }
-                };
+                } else {
+                    ui_response.clone().context_menu(|ui| {
+                        response = export_menu(ui).map(
+                            |format| PlotResponse::Export {
+                                kind: PlotKind::YLogPt,
+                                format
+                            });
+                    });
+                }
             });
-        selected_particle
+        response
     }
 
     pub fn plot_3d<D>(
@@ -521,6 +539,16 @@ impl Plotter {
 
 }
 
+fn export_menu(ui: &mut Ui) -> Option<ExportFormat> {
+    use ExportFormat::*;
+    if ui.button("Export to asymptote").clicked() {
+        ui.close_menu();
+        Some(Asymptote)
+    } else {
+        None
+    }
+}
+
 fn rectangle(coord: [(f64, f64); 2]) -> egui_plot::Polygon {
     egui_plot::Polygon::new(vec![
         [coord[0].0, coord[0].1],
@@ -640,4 +668,30 @@ fn fmt_superscript(mut i: i64) -> String {
         res.push(SUPERSCRIPT_MINUS)
     }
     res.chars().rev().collect()
+}
+
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum PlotResponse {
+    Export{kind: PlotKind, format: ExportFormat},
+    Selected(Particle),
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum PlotKind {
+    YPhi,
+    YLogPt,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum ExportFormat {
+    Asymptote,
+}
+
+impl ExportFormat {
+    pub(crate) fn suffix(&self) -> &'static str {
+        match self {
+            ExportFormat::Asymptote => "asy",
+        }
+    }
 }

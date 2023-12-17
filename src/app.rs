@@ -1,11 +1,12 @@
 use egui::{Context, ViewportCommand, DragValue};
 use jetty::PseudoJet;
-use log::{debug, trace};
+use log::{debug, trace, error};
 
 use crate::clustering::{ClusterSettings, cluster};
 use crate::event::Event;
-use crate::plotter::Plotter;
-use crate::windows::{PlotterSettings, DetectorWin, YPhiWin, YLogPtWin, ParticleStyleChoiceWin};
+use crate::export::export;
+use crate::plotter::{Plotter, PlotResponse};
+use crate::windows::{PlotterSettings, DetectorWin, YPhiWin, YLogPtWin, ParticleStyleChoiceWin, ExportDialogue};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -20,6 +21,8 @@ pub struct TemplateApp {
     clustering: ClusterSettings,
     #[serde(skip)]
     particle_style_choice_win: ParticleStyleChoiceWin,
+    #[serde(skip)]
+    export_win: ExportDialogue,
     #[serde(skip)]
     events: Vec<Event>,
     #[serde(skip)]
@@ -194,18 +197,28 @@ impl eframe::App for TemplateApp {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| self.menu(ctx, ui, frame));
 
         let dummy = Event::default();
-        let event = &self.events.get(self.event_idx).unwrap_or(&dummy);
+        let event = self.events.get(self.event_idx).unwrap_or(&dummy);
 
         if self.plotter_settings.changed(ctx) {
             self.plotter.font = self.plotter_settings.font.clone();
         }
 
-        let selected_logpt = self.y_log_pt.show(ctx, &mut self.plotter, event, &self.jets);
-        let selected_phi = self.y_phi.show(ctx, &mut self.plotter, event, &self.jets);
-        if let Some(particle) = selected_logpt.or(selected_phi) {
-            self.particle_style_choice_win.id = particle.id;
-            self.particle_style_choice_win.set_pos(ctx.pointer_interact_pos());
-            self.particle_style_choice_win.is_open = true;
+        let response_logpt = self.y_log_pt.show(ctx, &mut self.plotter, event, &self.jets);
+        let response_phi = self.y_phi.show(ctx, &mut self.plotter, event, &self.jets);
+        let response = response_logpt.or(response_phi);
+        match response {
+            Some(PlotResponse::Selected(particle)) => {
+                self.particle_style_choice_win.id = particle.id;
+                self.particle_style_choice_win.set_pos(ctx.pointer_interact_pos());
+                self.particle_style_choice_win.is_open = true;
+            }
+            Some(PlotResponse::Export{ kind, format }) => {
+                self.export_win.kind = kind;
+                self.export_win.format = format;
+                self.export_win.event_id = self.event_idx;
+                self.export_win.open();
+            }
+            None => { },
         }
 
         self.detector.show(ctx, &mut self.plotter, event, &self.jets);
@@ -216,7 +229,22 @@ impl eframe::App for TemplateApp {
             debug!("Clustering changed to {:?}", self.clustering);
         }
 
+        let kind = self.export_win.kind;
+        let format = self.export_win.format;
+        if let Some(path) = self.export_win.show(ctx) {
+            if let Err(err) = export(
+                path,
+                event,
+                kind,
+                format,
+                &self.plotter_settings
+            ) {
+                error!("{err}"); // TODO: message window
+            }
+        }
+
         self.draw_bottom_panel(ctx);
+
     }
 
 }

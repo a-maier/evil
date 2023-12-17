@@ -1,4 +1,5 @@
 use std::ops::Range;
+use std::path::Path;
 
 use egui::{Context, DragValue, Pos2};
 use jetty::PseudoJet;
@@ -10,7 +11,7 @@ use strum::IntoEnumIterator;
 use crate::event::Event;
 use crate::font::{Font, FontFamily, FontStyle};
 use crate::particle::Particle;
-use crate::plotter::{self, Plotter};
+use crate::plotter::{self, Plotter, PlotResponse, ExportFormat, PlotKind};
 
 lazy_static!{
     static ref FONT_NAMES: Vec<String> = {
@@ -47,7 +48,7 @@ impl YLogPtWin {
         plotter: &mut Plotter,
         event: &Event,
         jets: &[PseudoJet],
-    ) -> Option<Particle> {
+    ) -> Option<PlotResponse> {
         if !self.is_open { return None }
 
         egui::Window::new("YLogPtWin")
@@ -88,7 +89,7 @@ impl YPhiWin {
         plotter: &mut Plotter,
         event: &Event,
         jets: &[PseudoJet],
-    ) -> Option<Particle> {
+    ) -> Option<PlotResponse> {
         if !self.is_open { return None }
 
         egui::Window::new("YPhiWin")
@@ -299,4 +300,47 @@ impl PlotterSettings {
         changed
     }
 
+}
+
+#[derive(Debug)]
+pub struct ExportDialogue {
+    pub format: ExportFormat,
+    pub kind: PlotKind,
+    pub event_id: usize,
+    dialogue: egui_file::FileDialog,
+}
+
+impl Default for ExportDialogue {
+    fn default() -> Self {
+        Self {
+            format: ExportFormat::Asymptote, // some default, doesn't matter which
+            kind: PlotKind::YLogPt,
+            event_id: Default::default(),
+            dialogue: egui_file::FileDialog::save_file(None).title("Export event")
+        }
+    }
+ }
+
+
+impl ExportDialogue {
+    pub(crate) fn show(&mut self, ctx: &Context) -> Option<&Path> {
+        self.dialogue.show(ctx);
+        if self.dialogue.selected() {
+            self.dialogue.path()
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn open(&mut self) {
+        self.dialogue = egui_file::FileDialog::save_file(None)
+            .title("Export event")
+            .default_filename(format!(
+                "event_{}_{:?}.{}",
+                self.event_id,
+                self.kind,
+                self.format.suffix()
+        ));
+        self.dialogue.open();
+    }
 }
