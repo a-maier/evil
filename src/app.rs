@@ -1,3 +1,7 @@
+use std::sync::mpsc::{channel, Receiver};
+use std::thread::spawn;
+
+use event_file_reader::EventFileReader as Reader;
 use egui::{Context, ViewportCommand, DragValue};
 use jetty::PseudoJet;
 use log::{debug, trace, error};
@@ -31,6 +35,12 @@ pub struct TemplateApp {
     event_idx: usize,
     #[serde(skip)]
     bottom_panel: BottomPanelData,
+    #[serde(skip)]
+    msg: String,
+    #[serde(skip)]
+    r_ev: Option<Receiver<Event>>, // have to use Option to derive Default
+    #[serde(skip)]
+    r_msg: Option<Receiver<String>>, // have to use Option to derive Default
 }
 
 struct BottomPanelData {
@@ -49,10 +59,7 @@ impl Default for BottomPanelData {
 
 impl TemplateApp {
     /// Called once before the first frame.
-    pub fn new(
-        cc: &eframe::CreationContext<'_>,
-        events: Vec<Event>
-    ) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -96,17 +103,47 @@ impl TemplateApp {
         });
 
         // Load previous app state (if any).
-        if let Some(storage) = cc.storage {
-            let mut res: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-            res.events = events;
-            return res;
-        }
-
-        let mut res = Self{
-            events,
-            ..Default::default()
+        let mut res = if let Some(storage) = cc.storage {
+            eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
+        } else {
+            Self::default()
         };
-        res.recluster();
+
+        // TODO: load new event files
+        // let (s_file, r_file) = channel();
+        let (s_ev, r_ev) = channel();
+        let (s_msg, r_msg) = channel();
+        spawn(move || for file in std::env::args().skip(1) {
+              // while let Ok(file) = r_file.recv()
+            if s_msg.send(format!("Loading events from {file}")).is_err() {
+                break;
+            }
+            let reader = match Reader::new(&file) {
+                Ok(reader) => reader,
+                Err(err) => if s_msg.send(format!("Failed to read from {file}: {err}")).is_err() {
+                    break;
+                } else {
+                    continue;
+                }
+            };
+            for event in reader {
+                match event {
+                    Ok(event) => {
+                        if s_ev.send(event.into()).is_err() {
+                            break;
+                        }
+                    }
+                    Err(err) => {
+                        let _ = s_msg.send(format!("Failed to read from {file}: {err}"));
+                    }
+                }
+            }
+            if s_msg.send(String::new()).is_err() {
+                break;
+            }
+        });
+        res.r_msg = Some(r_msg);
+        res.r_ev = Some(r_ev);
         res
     }
 
@@ -192,6 +229,18 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+        while let Ok(msg) = self.r_msg.as_mut().unwrap().try_recv() {
+            self.msg = msg;
+        }
+        const MAX_ITER: usize = 1000; // TODO: tweak
+        let mut n_iter = 0;
+        while let Ok(ev) = self.r_ev.as_mut().unwrap().try_recv() {
+            self.events.push(ev);
+            n_iter += 1;
+            if n_iter > MAX_ITER {
+                break;
+            }
+        }
         self.recluster();
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| self.menu(ctx, ui, frame));
@@ -246,6 +295,10 @@ impl eframe::App for TemplateApp {
         }
 
         self.draw_bottom_panel(ctx);
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.weak(&self.msg);
+        });
 
     }
 
