@@ -235,9 +235,11 @@ impl eframe::App for TemplateApp {
             if let Err(err) = export(
                 path,
                 event,
+                &self.jets,
+                self.plotter.r_jet,
                 kind,
                 format,
-                &self.plotter_settings
+                &self.plotter.settings
             ) {
                 error!("{err}"); // TODO: message window
             }

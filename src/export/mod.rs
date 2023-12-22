@@ -3,21 +3,24 @@ mod asy;
 use std::{fs::File, io::BufWriter, path::Path};
 
 use anyhow::{Context, Result};
+use jetty::PseudoJet;
 
-use crate::{Event, plotter::{PlotKind, ExportFormat}, windows::PlotterSettings, export::asy::export_asy};
+use crate::{Event, plotter::{PlotKind, ExportFormat, self}, windows::PlotterSettings, export::asy::export_asy};
 
 pub(crate) fn export(
     path: &Path,
     event: &Event,
+    jets: &[PseudoJet],
+    r_jet: f64,
     kind: PlotKind,
     format: ExportFormat,
-    settings: &PlotterSettings,
+    settings: &plotter::Settings,
 ) -> Result<()> {
     use ExportFormat::*;
     let out =
-        File::open(path).with_context(|| format!("Failed to open {path:?}"))?;
+        File::create(path).with_context(|| format!("Failed to open {path:?}"))?;
     let out = BufWriter::new(out);
     match format {
-        Asymptote => export_asy(out, event, kind, settings),
+        Asymptote => export_asy(out, event, jets, r_jet, kind, settings),
     }
 }
