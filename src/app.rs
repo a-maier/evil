@@ -1,4 +1,4 @@
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::spawn;
 
 use event_file_reader::EventFileReader as Reader;
@@ -35,6 +35,8 @@ pub struct TemplateApp {
     bottom_panel: BottomPanelData,
     #[serde(skip)]
     msg: String,
+    #[serde(skip)]
+    s_file: Option<Sender<String>>, // have to use Option to derive Default
     #[serde(skip)]
     r_ev: Option<Receiver<Event>>, // have to use Option to derive Default
     #[serde(skip)]
@@ -105,12 +107,10 @@ impl TemplateApp {
             Self::default()
         };
 
-        // TODO: load new event files
-        // let (s_file, r_file) = channel();
+        let (s_file, r_file) = channel();
         let (s_ev, r_ev) = channel();
         let (s_msg, r_msg) = channel();
-        spawn(move || for file in std::env::args().skip(1) {
-              // while let Ok(file) = r_file.recv()
+        spawn(move || while let Ok(file) = r_file.recv() {
             if s_msg.send(format!("Loading events from {file}")).is_err() {
                 break;
             }
@@ -138,8 +138,14 @@ impl TemplateApp {
                 break;
             }
         });
+        for file in std::env::args().skip(1) {
+            if s_file.send(file).is_err() {
+                break;
+            }
+        }
         res.r_msg = Some(r_msg);
         res.r_ev = Some(r_ev);
+        res.s_file = Some(s_file);
         res
     }
 
