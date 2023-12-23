@@ -218,3 +218,33 @@ impl ExportDialogue {
         self.dialogue.open();
     }
 }
+
+#[derive(Debug)]
+pub struct ImportDialogue {
+    dialogue: egui_file::FileDialog,
+}
+
+impl Default for ImportDialogue {
+    fn default() -> Self {
+        Self {
+            dialogue: egui_file::FileDialog::open_file(None).title("Open event file")
+        }
+    }
+}
+
+impl ImportDialogue {
+    pub(crate) fn show(&mut self, ctx: &Context) -> Option<&Path> {
+        self.dialogue.show(ctx);
+        if self.dialogue.selected() {
+            self.dialogue.path()
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn open(&mut self) {
+        self.dialogue = egui_file::FileDialog::open_file(None)
+            .title("Open event file");
+        self.dialogue.open();
+    }
+}

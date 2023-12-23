@@ -10,7 +10,7 @@ use crate::clustering::{ClusterSettings, cluster};
 use crate::event::Event;
 use crate::export::export;
 use crate::plotter::{Plotter, PlotResponse};
-use crate::windows::{YPhiWin, YLogPtWin, ParticleStyleChoiceWin, ExportDialogue};
+use crate::windows::{YPhiWin, YLogPtWin, ParticleStyleChoiceWin, ExportDialogue, ImportDialogue};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -23,6 +23,8 @@ pub struct TemplateApp {
     clustering: ClusterSettings,
     #[serde(skip)]
     particle_style_choice_win: ParticleStyleChoiceWin,
+    #[serde(skip)]
+    open_file_win: ImportDialogue,
     #[serde(skip)]
     export_win: ExportDialogue,
     #[serde(skip)]
@@ -158,6 +160,9 @@ impl TemplateApp {
         egui::menu::bar(ui, |ui| {
             #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
             ui.menu_button("File", |ui| {
+                if ui.button("Open").clicked() {
+                    self.open_file_win.open();
+                }
                 if ui.button("Quit").clicked() {
                     ctx.send_viewport_cmd(ViewportCommand::Close);
                 }
@@ -216,6 +221,19 @@ impl TemplateApp {
         }
         self.plotter.r_jet = self.clustering.jet_def.radius;
         trace!("recluster: {:#?}", self.jets);
+    }
+
+    fn draw_central_panel(&mut self, ctx: &Context) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+
+            // let callback = egui::PaintCallback {
+            //     rect: ui.clip_rect(),
+            //     callback: todo!(),
+            // };
+
+            // ui.painter().add(egui::Shape::Callback(callback));
+            ui.weak(&self.msg);
+        });
     }
 }
 
@@ -282,12 +300,18 @@ impl eframe::App for TemplateApp {
             }
         }
 
+        if let Some(path) = self.open_file_win.show(ctx) {
+            if let Some(path) = path.to_str() {
+                self.events.clear();
+                let _ = self.s_file.as_mut().unwrap().send(path.to_owned());
+            } else {
+                self.msg = format!("Failed to open {path:?}: Cannot convert to UTF-8");
+            }
+        }
+
         self.draw_bottom_panel(ctx);
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.weak(&self.msg);
-        });
-
+        self.draw_central_panel(ctx);
     }
 
 }
