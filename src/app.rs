@@ -284,7 +284,8 @@ impl eframe::App for TemplateApp {
                 format,
                 &self.plotter.settings
             ) {
-                error!("{err}"); // TODO: message window
+                error!("{err}");
+                self.msg = err.to_string();
             }
         }
 
