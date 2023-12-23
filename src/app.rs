@@ -232,14 +232,8 @@ impl eframe::App for TemplateApp {
         while let Ok(msg) = self.r_msg.as_mut().unwrap().try_recv() {
             self.msg = msg;
         }
-        const MAX_ITER: usize = 1000; // TODO: tweak
-        let mut n_iter = 0;
         while let Ok(ev) = self.r_ev.as_mut().unwrap().try_recv() {
             self.events.push(ev);
-            n_iter += 1;
-            if n_iter > MAX_ITER {
-                break;
-            }
         }
         self.recluster();
 
