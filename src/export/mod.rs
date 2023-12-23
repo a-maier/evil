@@ -5,7 +5,7 @@ use std::{fs::File, io::BufWriter, path::Path};
 use anyhow::{Context, Result};
 use jetty::PseudoJet;
 
-use crate::{Event, plotter::{PlotKind, ExportFormat, self}, windows::PlotterSettings, export::asy::export_asy};
+use crate::{Event, plotter::{PlotKind, ExportFormat, self}, export::asy::export_asy};
 
 pub(crate) fn export(
     path: &Path,

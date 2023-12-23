@@ -10,7 +10,7 @@ use crate::clustering::{ClusterSettings, cluster};
 use crate::event::Event;
 use crate::export::export;
 use crate::plotter::{Plotter, PlotResponse};
-use crate::windows::{PlotterSettings, DetectorWin, YPhiWin, YLogPtWin, ParticleStyleChoiceWin, ExportDialogue};
+use crate::windows::{YPhiWin, YLogPtWin, ParticleStyleChoiceWin, ExportDialogue};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -19,9 +19,7 @@ use crate::windows::{PlotterSettings, DetectorWin, YPhiWin, YLogPtWin, ParticleS
 pub struct TemplateApp {
     y_log_pt: YLogPtWin,
     y_phi: YPhiWin,
-    detector: DetectorWin,
     plotter: Plotter,
-    plotter_settings: PlotterSettings,
     clustering: ClusterSettings,
     #[serde(skip)]
     particle_style_choice_win: ParticleStyleChoiceWin,
@@ -44,14 +42,12 @@ pub struct TemplateApp {
 }
 
 struct BottomPanelData {
-    ev_idx_str: String,
     space: f32,
 }
 
 impl Default for BottomPanelData {
     fn default() -> Self {
         Self {
-            ev_idx_str: "1".to_string(),
             space: 0.
         }
     }
@@ -164,14 +160,10 @@ impl TemplateApp {
                 if ui.button("Jet clustering").clicked() {
                     self.clustering.is_open = true;
                 }
-                if ui.button("Plotting").clicked() {
-                    self.plotter_settings.is_open = true;
-                }
             });
             ui.menu_button("Windows", |ui| {
                 ui.checkbox(&mut self.y_log_pt.is_open, "Transverse momentum over rapidity");
                 ui.checkbox(&mut self.y_phi.is_open, "Azimuthal angle over rapidity");
-                ui.checkbox(&mut self.detector.is_open, "Detector view");
             });
         });
     }
@@ -242,10 +234,6 @@ impl eframe::App for TemplateApp {
         let dummy = Event::default();
         let event = self.events.get(self.event_idx).unwrap_or(&dummy);
 
-        if self.plotter_settings.changed(ctx) {
-            self.plotter.font = self.plotter_settings.font.clone();
-        }
-
         let response_logpt = self.y_log_pt.show(ctx, &mut self.plotter, event, &self.jets);
         let response_phi = self.y_phi.show(ctx, &mut self.plotter, event, &self.jets);
         let response = response_logpt.or(response_phi);
@@ -263,8 +251,6 @@ impl eframe::App for TemplateApp {
             }
             None => { },
         }
-
-        self.detector.show(ctx, &mut self.plotter, event, &self.jets);
 
         self.particle_style_choice_win.show(ctx, &mut self.plotter.settings);
 
