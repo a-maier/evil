@@ -167,7 +167,7 @@ impl Default for Settings {
             // frame: egui::Color32::GRAY,
             // background: egui::Color32::TRANSPARENT,
             particles: HashMap::default(),
-            jets: egui::Color32::from_rgba_premultiplied(130, 130, 130, 80),
+            jets: egui::Color32::from_rgba_premultiplied(100, 100, 100, 80),
         }
     }
 }

@@ -106,6 +106,7 @@ impl YPhiWin {
     }
 }
 
+// TODO: choice for jets
 #[derive(Deserialize, Serialize)]
 pub(crate) struct ParticleStyleChoiceWin {
     pub(crate) is_open: bool,
