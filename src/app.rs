@@ -2,7 +2,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::spawn;
 
 use event_file_reader::EventFileReader as Reader;
-use egui::{Context, ViewportCommand, DragValue};
+use egui::{Context, ViewportCommand, DragValue, KeyboardShortcut, Modifiers};
 use jetty::PseudoJet;
 use log::{debug, trace, error};
 
@@ -160,9 +160,10 @@ impl TemplateApp {
         egui::menu::bar(ui, |ui| {
             #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
             ui.menu_button("File", |ui| {
-                if ui.button("Open").clicked() {
+                if ui.button("Open (Ctrl+O)").clicked() {
                     self.open_file_win.open();
                 }
+                // if ui.button("Quit (Ctrl+Q)").clicked() {
                 if ui.button("Quit").clicked() {
                     ctx.send_viewport_cmd(ViewportCommand::Close);
                 }
@@ -234,6 +235,32 @@ impl TemplateApp {
             // ui.painter().add(egui::Shape::Callback(callback));
             ui.weak(&self.msg);
         });
+    }
+
+    fn check_input(&mut self, ctx: &Context) {
+        ctx.input_mut(|i| {
+            let ctrl_q = KeyboardShortcut::new(Modifiers::CTRL, egui::Key::Q);
+            if i.consume_shortcut(&ctrl_q) {
+                // TODO: this makes the application hang
+                // ctx.send_viewport_cmd(ViewportCommand::Close);
+            }
+            let ctrl_o = KeyboardShortcut::new(Modifiers::CTRL, egui::Key::O);
+            if i.consume_shortcut(&ctrl_o) {
+                self.open_file_win.open();
+            }
+            let right = KeyboardShortcut::new(Modifiers::NONE, egui::Key::ArrowRight);
+            if i.consume_shortcut(&right) && !self.events.is_empty() {
+                self.event_idx = (self.event_idx + 1) % self.events.len();
+            };
+            let left = KeyboardShortcut::new(Modifiers::NONE, egui::Key::ArrowLeft);
+            if i.consume_shortcut(&left) && !self.events.is_empty() {
+                if self.event_idx == 0 {
+                    self.event_idx = self.events.len() - 1;
+                } else {
+                    self.event_idx -= 1;
+                }
+            };
+        })
     }
 }
 
@@ -312,6 +339,8 @@ impl eframe::App for TemplateApp {
         self.draw_bottom_panel(ctx);
 
         self.draw_central_panel(ctx);
+
+        self.check_input(ctx);
     }
 
 }
