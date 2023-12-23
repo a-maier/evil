@@ -15,7 +15,7 @@ impl From<avery::Event> for Event {
             .filter_map(|p| if p.status == Some(Status::Outgoing) {
                 Some(Particle::new(p.id.unwrap(), p.p.unwrap()))
             }  else {
-                    None
+                None
             }).collect();
         Event { out }
     }

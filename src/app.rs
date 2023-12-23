@@ -169,8 +169,8 @@ impl TemplateApp {
                 }
             });
             ui.menu_button("Windows", |ui| {
-                ui.checkbox(&mut self.y_log_pt.is_open, "y-log(pt) plot");
-                ui.checkbox(&mut self.y_phi.is_open, "y-φ plot");
+                ui.checkbox(&mut self.y_log_pt.is_open, "Transverse momentum over rapidity");
+                ui.checkbox(&mut self.y_phi.is_open, "Azimuthal angle over rapidity");
                 ui.checkbox(&mut self.detector.is_open, "Detector view");
             });
         });

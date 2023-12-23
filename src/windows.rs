@@ -51,7 +51,7 @@ impl YLogPtWin {
     ) -> Option<PlotResponse> {
         if !self.is_open { return None }
 
-        egui::Window::new("YLogPtWin")
+        egui::Window::new("Transverse momentum over rapidity")
             .title_bar(true)
             .min_width(100.)
             .min_height(100.)
@@ -92,7 +92,7 @@ impl YPhiWin {
     ) -> Option<PlotResponse> {
         if !self.is_open { return None }
 
-        egui::Window::new("YPhiWin")
+        egui::Window::new("Azimuthal angle over rapidity")
             .title_bar(true)
             .min_width(100.)
             .min_height(100.)
