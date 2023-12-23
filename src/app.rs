@@ -165,6 +165,7 @@ impl TemplateApp {
                 ui.checkbox(&mut self.y_log_pt.is_open, "Transverse momentum over rapidity");
                 ui.checkbox(&mut self.y_phi.is_open, "Azimuthal angle over rapidity");
             });
+            egui::global_dark_light_mode_switch(ui)
         });
     }
 
