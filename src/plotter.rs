@@ -10,12 +10,10 @@ use std::ops::{Range, RangeInclusive};
 
 use anyhow::Result;
 use egui::{Ui, Stroke, Response};
-use egui_plot::{Plot, Legend, Points};
+use egui_plot::{Plot, Legend, Points, PlotPoints, Polygon};
 use jetty::PseudoJet;
 use num_traits::float::Float;
 use particle_id::ParticleID;
-use plotters::prelude::*;
-use plotters::coord::Shift;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, Display};
@@ -352,10 +350,7 @@ impl Plotter {
         event: &Event,
         _jets: &[PseudoJet],
         root: D
-    ) -> Result<DrawingArea<D, Shift>>
-    where
-        D: IntoDrawingArea,
-        <D as DrawingBackend>::ErrorType: 'static
+    ) -> !
     {
         todo!()
         // let root = root.into_drawing_area();
@@ -488,17 +483,20 @@ impl Plotter {
         ui: &mut egui_plot::PlotUi,
         centre: [f64; 2]
     ) {
-        // TODO: fix shape depending on aspect ratio
+        let [y, phi] = centre;
         let jet_col = self.settings.jets;
-        let r = ui.screen_from_plot([self.r_jet, 0.0].into())[0]
-            - ui.screen_from_plot([0.0, 0.0].into())[0];
-        let pt = Points::new(centre)
-            .color(jet_col)
-            .radius(r)
-            .highlight(true)
-            .name("jet")
-            .shape(egui_plot::MarkerShape::Circle);
-        ui.points(pt);
+        let r = self.r_jet;
+        let circle = Polygon::new(PlotPoints::from_parametric_callback(
+            |a| (y + r * a.sin(), phi + r * a.cos() / PHI_SCALE),
+            0.0..(2. * PI),
+            100,
+        ));
+
+        let jet_circle = circle
+            .width(0.)
+            .fill_color(jet_col)
+            .name("jet");
+        ui.polygon(jet_circle);
     }
 
     fn draw_y_logpt(
@@ -527,6 +525,7 @@ impl Plotter {
         ];
         let rectangle = rectangle(coord)
             .stroke(Stroke::new(0.0, jet_col))
+            .name("jet")
             .fill_color(jet_col);
         ui.polygon(rectangle);
     }
