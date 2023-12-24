@@ -23,10 +23,6 @@ use strum::{EnumIter, Display};
 const PHI_SCALE: f64 = PI / 2.;
 const PHI_AXIS_MIN: f64 = -2.2;
 const PHI_AXIS_MAX: f64 = -PHI_AXIS_MIN;
-const Y_MIN: f64 = -5.;
-const Y_MAX: f64 = 5.;
-const Y_AXIS_MIN: f64 = 1.1 * Y_MIN;
-const Y_AXIS_MAX: f64 = 1.1 * Y_MAX;
 
 #[derive(Copy, Clone, PartialEq, Debug, Deserialize, Serialize)]
 pub struct ParticleStyle {
@@ -219,19 +215,19 @@ impl Plotter {
     ) -> Option<PlotResponse> {
         use PlotResponse::*;
         let mut response = None;
+        let [y_min, y_max] = y_min_max(&event.out);
         Plot::new("y phi plot")
-            .include_x(Y_AXIS_MIN)
-            .include_x(Y_AXIS_MAX)
+            .include_x(y_min)
+            .include_x(y_max)
             .include_y(PHI_AXIS_MIN)
             .include_y(PHI_AXIS_MAX)
             .x_axis_label("y")
             .y_axis_label("φ")
-            .x_axis_formatter(rap_tick_label)
             .y_axis_formatter(phi_tick_label)
             .show_grid([false, false])
             .legend(Legend::default())
             .label_formatter(|name, val|{
-                let y = coord_to_y(val.x);
+                let y = val.x;
                 let phi = clamp_phi_coord(val.y) * PHI_SCALE;
                 format!("{name}\ny = {y:.2}\nφ = {phi:.2}")
             })
@@ -254,9 +250,8 @@ impl Plotter {
                         return
                     };
                     for particle in event.out.iter() {
-                        let y_coord = y_to_coord(particle.y);
                         let phi_coord = particle.phi / PHI_SCALE;
-                        let pos = [y_coord  as f32, phi_coord as f32].into();
+                        let pos = [particle.y as f32, phi_coord as f32].into();
                         let dist = click_pos.distance_sq(pos);
                         if dist < closest_dist {
                             closest_dist = dist;
@@ -292,19 +287,19 @@ impl Plotter {
         let mut response = None;
         let logpt_start = logpt_range.start - 0.05 * logpt_range.start.abs();
         let logpt_end = logpt_range.end + 0.05 * logpt_range.end.abs();
+        let [y_min, y_max] = y_min_max(&event.out);
         Plot::new("y logpt plot")
-            .include_x(Y_AXIS_MIN)
-            .include_x(Y_AXIS_MAX)
+            .include_x(y_min)
+            .include_x(y_max)
             .include_y(logpt_start)
             .include_y(logpt_end)
             .x_axis_label("y")
             .y_axis_label("pT")
-            .x_axis_formatter(rap_tick_label)
             .y_axis_formatter(logpt_tick_label)
             .show_grid([false, false])
             .legend(Legend::default())
             .label_formatter(|name, val|{
-                let y = coord_to_y(val.x);
+                let y = val.x;
                 let pt = 10f64.powf(val.y);
                 format!("{name}\ny = {y:.2}\npT = {pt:.2}")
             })
@@ -326,9 +321,8 @@ impl Plotter {
                         return
                     };
                     for particle in event.out.iter() {
-                        let y_coord = y_to_coord(particle.y);
                         let pt_coord = particle.pt.log10();
-                        let pos = [y_coord  as f32, pt_coord as f32].into();
+                        let pos = [particle.y  as f32, pt_coord as f32].into();
                         let dist = click_pos.distance_sq(pos);
                         if dist < closest_dist {
                             closest_dist = dist;
@@ -461,7 +455,7 @@ impl Plotter {
         let mut phi_min = ui.plot_bounds().min()[1].floor() as i64;
         phi_min -= phi_min % 4;
         let phi_max = ui.plot_bounds().max()[1];
-        let mut centre = [y_to_coord(*y), phi_min as f64 + *phi / PHI_SCALE];
+        let mut centre = [*y, phi_min as f64 + *phi / PHI_SCALE];
         while centre[1] < phi_max {
             self.draw_particle_at(ui, *id, centre);
             centre[1] += 4.0
@@ -482,7 +476,7 @@ impl Plotter {
         let mut phi_min = ui.plot_bounds().min()[1].floor() as i64;
         phi_min -= phi_min % 4;
         let phi_max = ui.plot_bounds().max()[1];
-        let mut centre = [y_to_coord(y), phi_min as f64 + phi / PHI_SCALE];
+        let mut centre = [y, phi_min as f64 + phi / PHI_SCALE];
         while centre[1] < phi_max {
             self.draw_jet_circle(ui, centre);
             centre[1] += 4.0
@@ -514,7 +508,7 @@ impl Plotter {
     ) {
         let Particle { id, y, pt, .. } = particle;
         debug!("Drawing particle {} at (y, log(pt)) = ({y}, {})", id.id(), pt.log10());
-        let centre = [y_to_coord(*y), pt.log10()];
+        let centre = [*y, pt.log10()];
         self.draw_particle_at(ui, *id, centre);
     }
 
@@ -524,12 +518,12 @@ impl Plotter {
         jet: &PseudoJet
     ) {
         debug!("Drawing jet at (y, log(pt)) = ({}, {})", jet.rap(), jet.pt2().log10()/2.);
-        let centre = (y_to_coord(jet.rap().into()), (jet.pt2().log10()/2.).into());
+        let centre = (f64::from(jet.rap()), (jet.pt2().log10()/2.).into());
         let jet_col = self.settings.jets;
         let pt_min = ui.plot_bounds().min()[1];
         let coord = [
-            (y_to_coord(centre.0 - self.r_jet), pt_min),
-            (y_to_coord(centre.0 + self.r_jet), centre.1),
+            (centre.0 - self.r_jet, pt_min),
+            (centre.0 + self.r_jet, centre.1),
         ];
         let rectangle = rectangle(coord)
             .stroke(Stroke::new(0.0, jet_col))
@@ -537,6 +531,30 @@ impl Plotter {
         ui.polygon(rectangle);
     }
 
+}
+
+pub(crate) fn y_min_max(p: &[Particle]) -> [f64; 2] {
+    let y_min = p.iter()
+        .map(|p| p.y)
+        .min_by(|a, b| a.total_cmp(b))
+        .unwrap_or_default();
+    let y_min = if y_min < 0. {
+        1.1 * y_min
+    } else {
+        0.9 * y_min
+    };
+    let y_min = f64::min(y_min, -4.5);
+    let y_max = p.iter()
+        .map(|p| p.y)
+        .max_by(|a, b| a.total_cmp(b))
+        .unwrap_or_default();
+    let y_max = if y_max < 0. {
+        0.9 * y_max
+    } else {
+        1.1 * y_max
+    };
+    let y_max = f64::max(y_max, 4.5);
+    [y_min, y_max]
 }
 
 fn export_menu(ui: &mut Ui) -> Option<ExportFormat> {
@@ -558,55 +576,12 @@ fn rectangle(coord: [(f64, f64); 2]) -> egui_plot::Polygon {
     ])
 }
 
-// at which point we transition between linear and logarithmic
-// relation between y and plot coordinate
-const Y_CUT: f64 = 4.;
-const DY: f64 = Y_MAX - Y_CUT;
-
-fn y_to_coord(y: f64) -> f64 {
-    if y.abs() <= Y_CUT {
-        y
-    } else {
-        y.signum() * (Y_CUT + DY * (1. - ((- y.abs() + Y_CUT) / DY).exp()))
-    }
-}
-
-fn coord_to_y(coord: f64) -> f64 {
-    match coord.abs() {
-        c if c <= Y_CUT => coord,
-        c if c <= Y_MAX => coord.signum() * (Y_CUT + DY * (DY / (Y_MAX - c)).ln()),
-        _ => coord.signum() * f64::INFINITY
-    }
-}
-
 fn add<T: std::ops::Add>(t1: (T, T), t2: (T, T)) -> (T::Output, T::Output) {
     (t1.0 + t2.0, t1.1 + t2.1)
 }
 
 fn sub<T: std::ops::Sub>(t1: (T, T), t2: (T, T)) -> (T::Output, T::Output) {
     (t1.0 - t2.0, t1.1 - t2.1)
-}
-
-fn rap_tick_label(
-    coord: f64,
-    max_chars: usize,
-    _axis_range: &RangeInclusive<f64>
-) -> String {
-    match coord {
-        c if c < Y_MIN => String::new(),
-        c if c == Y_MIN => "-∞".to_string(),
-        c if c < Y_MAX => {
-            let res = format!("{}", coord_to_y(c));
-            let res = String::from_iter(res.chars().take(max_chars));
-            if let Some(end) = res.rfind(|c| c != '0') {
-                res.chars().take(end + 1).collect()
-            } else {
-                "0".to_owned()
-            }
-        },
-        c if c == Y_MAX => "∞".to_string(),
-        _  => String::new(),
-    }
 }
 
 fn phi_tick_label(

@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use jetty::PseudoJet;
 use num_traits::Float;
 
-use crate::{Event, plotter::{PlotKind, self}, particle::Particle};
+use crate::{Event, plotter::{PlotKind, self, y_min_max}, particle::Particle};
 
 pub(crate) fn export_asy(
     out: impl Write,
@@ -32,6 +32,9 @@ pub(crate) fn export_asy_y_phi(
 ) -> Result<()> {
     out.write_all(HEADER)?;
     out.write_all(Y_PHI_HEADER)?;
+    let [y_min, y_max] = y_min_max(&event.out);
+    writeln!(out, "real xmin = {y_min};
+real xmax = {y_max};")?;
     let mut seen = HashSet::new();
     let r = settings.jets.r() as f32 / u8::MAX as f32;
     let g = settings.jets.g() as f32 / u8::MAX as f32;
@@ -59,9 +62,9 @@ pub(crate) fn export_asy_y_phi(
         if seen.insert(id) {
             let name = id.latex_symbol().map(Cow::Borrowed)
                 .unwrap_or_else(|| Cow::Owned(id.id().to_string()));
-            writeln!(out, "draw((theta_bar({y:.3}), {phi:.3}), p=invisible, marker=marker(scale({size})*{shape}, FillDraw(fillpen=rgb({r:.3},{g:.3},{b:.3}))), legend=\"${name}$\");")?;
+            writeln!(out, "draw(({y:.3}, {phi:.3}), p=invisible, marker=marker(scale({size})*{shape}, FillDraw(fillpen=rgb({r:.3},{g:.3},{b:.3}))), legend=\"${name}$\");")?;
         } else {
-            writeln!(out, "draw((theta_bar({y:.3}), {phi:.3}), p=invisible, marker=marker(scale({size})*{shape}, FillDraw(fillpen=rgb({r:.3},{g:.3},{b:.3}))));")?;
+            writeln!(out, "draw(({y:.3}, {phi:.3}), p=invisible, marker=marker(scale({size})*{shape}, FillDraw(fillpen=rgb({r:.3},{g:.3},{b:.3}))));")?;
         }
     }
     out.write_all(Y_PHI_AXIS)?;
@@ -75,6 +78,9 @@ pub(crate) fn export_asy_y_logpt(
     r_jet: f64,
     settings: &plotter::Settings,
 ) -> Result<()> {
+    let [y_min, y_max] = y_min_max(&event.out);
+    writeln!(out, "real xmin = {y_min};
+real xmax = {y_max};")?;
     let mut ptmin = f64::MAX;
     let mut ptmax = 0.;
     for particle in &event.out {
@@ -114,7 +120,7 @@ scale(Linear,Log);")?;
         let pt = jet.pt();
         let y_min = y - r_jet;
         let y_max = y + r_jet;
-        writeln!(out, "fill(box((theta_bar({y_min:.3}), log10(ptmin)), (theta_bar({y_max:.3}), log10({pt:.3}))), rgb({r:.3},{g:.3},{b:.3}) + opacity(0.2));")?;
+        writeln!(out, "fill(box(({y_min:.3}, log10(ptmin)), ({y_max:.3}, log10({pt:.3}))), rgb({r:.3},{g:.3},{b:.3}) + opacity(0.2));")?;
     }
     for particle in &event.out {
         let logpt = particle.pt.log10();
@@ -132,16 +138,16 @@ scale(Linear,Log);")?;
         if seen.insert(id) {
             let name = id.latex_symbol().map(Cow::Borrowed)
                 .unwrap_or_else(|| Cow::Owned(id.id().to_string()));
-            writeln!(out, "draw((theta_bar({y:.3}), {logpt:.3}), p=invisible, marker=marker(scale({size})*{shape}, FillDraw(fillpen=rgb({r:.3},{g:.3},{b:.3}))), legend=\"${name}$\");")?;
+            writeln!(out, "draw(({y:.3}, {logpt:.3}), p=invisible, marker=marker(scale({size})*{shape}, FillDraw(fillpen=rgb({r:.3},{g:.3},{b:.3}))), legend=\"${name}$\");")?;
         } else {
-            writeln!(out, "draw((theta_bar({y:.3}), {logpt:.3}), p=invisible, marker=marker(scale({size})*{shape}, FillDraw(fillpen=rgb({r:.3},{g:.3},{b:.3}))));")?;
+            writeln!(out, "draw(({y:.3}, {logpt:.3}), p=invisible, marker=marker(scale({size})*{shape}, FillDraw(fillpen=rgb({r:.3},{g:.3},{b:.3}))));")?;
         }
     }
-    writeln!(out, r#"xaxis(Label("$y$",0.5),YEquals(ptmin),xmin,xmax,LeftTicks(y_label,Ticks = yTicks, ticks=yticks));
-xaxis(YEquals(ptmax),xmin,xmax,RightTicks("%", Ticks = yTicks, ticks=yticks));
+    writeln!(out, r#"xaxis(Label("$y$",0.5),YEquals(ptmin),xmin,xmax,LeftTicks);
+xaxis(YEquals(ptmax),xmin,xmax,RightTicks("%"));
 yaxis(Label("$p_\perp\,$[GeV]",0.5),XEquals(xmin),ptmin,ptmax,RightTicks);
 yaxis(XEquals(xmax),ptmin,ptmax,LeftTicks("%"));
-add(legend(invisible),(theta_bar(4.), log10(ptmin) + 0.9*log10(ptmax/ptmin)));
+add(legend(invisible),(3.5, log10(ptmin) + 0.9*log10(ptmax/ptmin)));
 "#)?;
 
     Ok(())
@@ -151,9 +157,9 @@ const HEADER: &[u8] = include_bytes!("header.asy");
 const Y_PHI_HEADER: &[u8] = include_bytes!("y_phi.asy");
 
 const Y_PHI_AXIS: &[u8] =  br#"clip((xmin,phimin)--(xmax,phimin)--(xmax,phimax)--(xmin,phimax)--cycle);
-xaxis(Label("$y$",0.5),YEquals(phimin),xmin,xmax,LeftTicks(y_label,Ticks = yTicks, ticks=yticks));
-xaxis(YEquals(phimax),xmin,xmax,RightTicks("%", Ticks = yTicks, ticks=yticks));
+xaxis(Label("$y$",0.5),YEquals(phimin),xmin,xmax,LeftTicks);
+xaxis(YEquals(phimax),xmin,xmax,RightTicks("%"));
 yaxis(Label("$\phi$",0.5),XEquals(xmin),phimin,phimax,RightTicks(phi_label, Step=pi/2,step=pi/8));
 yaxis(XEquals(xmax),phimin,phimax,LeftTicks("%",Step=pi/4,step=pi/8));
-add(legend(invisible),(theta_bar(4.),2.6));
+add(legend(invisible),(3.5,2.6));
 "#;

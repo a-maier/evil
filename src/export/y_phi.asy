@@ -12,10 +12,10 @@ string phi_label(real x){
 }
 
 guide jet_guide(real y, real phi, real R) {
-  pair centre = (theta_bar(y), phi);
+  pair centre = (y, phi);
   return graph(
                new pair(real alpha) {
-                 return (theta_bar(y + R*cos(alpha)), phi + R*sin(alpha));
+                 return (y + R*cos(alpha), phi + R*sin(alpha));
                },
                0, 2*pi
                )..cycle;
