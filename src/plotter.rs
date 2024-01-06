@@ -12,6 +12,7 @@ use anyhow::Result;
 use egui::{Ui, Stroke, Response};
 use egui_plot::{Plot, Legend, Points, PlotPoints, Polygon};
 use jetty::PseudoJet;
+use num_traits::clamp_max;
 use num_traits::float::Float;
 use particle_id::ParticleID;
 use log::debug;
@@ -279,18 +280,27 @@ impl Plotter {
         ui: &mut Ui,
         event: &Event,
         jets: &[PseudoJet],
-        logpt_range: Range<f64>,
     ) -> Option<PlotResponse> {
         use PlotResponse::*;
         let mut response = None;
-        let logpt_start = logpt_range.start - 0.05 * logpt_range.start.abs();
-        let logpt_end = logpt_range.end + 0.05 * logpt_range.end.abs();
+        let max_logpt = event.out.iter()
+            .map(|p| p.pt.log10())
+            .min_by(|a, b| b.partial_cmp(&a).unwrap())
+            .unwrap_or_default();
+        let min_logpt = event.out.iter()
+            .map(|p| p.pt.log10())
+            .min_by(|a, b| a.partial_cmp(&b).unwrap())
+            .unwrap_or_default();
+        let min_logpt = clamp_max(min_logpt, max_logpt - 1.0);
+        let range = max_logpt - min_logpt;
+        let min_logpt = min_logpt - 0.1 * range;
+        let max_logpt = max_logpt + 0.1 * range;
         let [y_min, y_max] = y_min_max(&event.out);
         Plot::new("y logpt plot")
             .include_x(y_min)
             .include_x(y_max)
-            .include_y(logpt_start)
-            .include_y(logpt_end)
+            .include_y(min_logpt)
+            .include_y(max_logpt)
             .auto_bounds([true, false].into())
             .x_axis_label("y")
             .y_axis_label("pT")

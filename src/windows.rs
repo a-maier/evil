@@ -60,7 +60,6 @@ impl YLogPtWin {
                     ui,
                     event,
                     jets,
-                    self.logpt.clone(),
                 )
             }).map(|e| e.inner.flatten()).flatten()
 
