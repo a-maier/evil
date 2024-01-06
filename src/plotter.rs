@@ -291,6 +291,7 @@ impl Plotter {
             .include_x(y_max)
             .include_y(logpt_start)
             .include_y(logpt_end)
+            .auto_bounds([true, false].into())
             .x_axis_label("y")
             .y_axis_label("pT")
             .y_axis_formatter(logpt_tick_label)
