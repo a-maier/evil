@@ -220,6 +220,7 @@ impl Plotter {
             .include_x(y_max)
             .include_y(PHI_AXIS_MIN)
             .include_y(PHI_AXIS_MAX)
+            .auto_bounds([true, false].into())
             .x_axis_label("y")
             .y_axis_label("φ")
             .y_axis_formatter(phi_tick_label)
