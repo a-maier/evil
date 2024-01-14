@@ -1,10 +1,13 @@
+use std::sync::Arc;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::spawn;
 
 use event_file_reader::EventFileReader as Reader;
-use egui::{Context, ViewportCommand, DragValue, KeyboardShortcut, Modifiers};
+use egui::{Context, ViewportCommand, DragValue, KeyboardShortcut, Modifiers, Vec2};
 use jetty::PseudoJet;
 use log::{debug, trace, error};
+use resvg::tiny_skia::PixmapMut;
+use usvg::TreeParsing;
 
 use crate::clustering::{ClusterSettings, cluster};
 use crate::event::Event;
@@ -43,6 +46,9 @@ pub struct TemplateApp {
     r_ev: Option<Receiver<Event>>, // have to use Option to derive Default
     #[serde(skip)]
     r_msg: Option<Receiver<String>>, // have to use Option to derive Default
+
+    #[serde(skip)]
+    plot_3d: Option<egui::TextureHandle>,
 }
 
 struct BottomPanelData {
@@ -95,7 +101,7 @@ impl TemplateApp {
         cc.egui_ctx.set_fonts(fonts);
 
 
-        // Disable feathering as it allegedly causes artifacts
+        // Disable feathering as it allegedly causes artifacts with egui-plotter
         let context = &cc.egui_ctx;
 
         context.tessellation_options_mut(|tess_options| {
@@ -224,16 +230,30 @@ impl TemplateApp {
         trace!("recluster: {:#?}", self.jets);
     }
 
-    fn draw_central_panel(&mut self, ctx: &Context) {
+    fn draw_central_panel(
+        &mut self,
+        ctx: &Context,
+        event: &Event,
+    ) {
         egui::CentralPanel::default().show(ctx, |ui| {
-
-            // let callback = egui::PaintCallback {
-            //     rect: ui.clip_rect(),
-            //     callback: todo!(),
-            // };
-
-            // ui.painter().add(egui::Shape::Callback(callback));
             ui.weak(&self.msg);
+            let Vec2{x, y}= ui.available_size();
+            let [width, height] = [x as usize, y as usize];
+            let mut img = String::new();
+            self.plotter.plot_3d(event, &self.jets, &mut img, [width, height]);
+            let tree = usvg::Tree::from_str(&img, &Default::default()).unwrap();
+            let tree = resvg::Tree::from_usvg(&tree);
+            let mut data = vec![0u8; width  * height * resvg::tiny_skia::BYTES_PER_PIXEL];
+            let mut img = PixmapMut::from_bytes(&mut data, width as u32, height as u32).unwrap();
+            tree.render(Default::default(), &mut img);
+            let img = egui::ColorImage::from_rgba_premultiplied([width, height], img.data_mut());
+            let img = egui::ImageData::from(img);
+            let texture = self.plot_3d.get_or_insert_with(
+                || ctx.load_texture("3D Plot", img.clone(), egui::TextureOptions::default())
+            );
+            texture.set(img, egui::TextureOptions::default());
+            let img = egui::load::SizedTexture::from_handle(&texture);
+            ui.image(img)
         });
     }
 
@@ -284,10 +304,10 @@ impl eframe::App for TemplateApp {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| self.menu(ctx, ui, frame));
 
         let dummy = Event::default();
-        let event = self.events.get(self.event_idx).unwrap_or(&dummy);
+        let event = self.events.get(self.event_idx).unwrap_or(&dummy).clone();
 
-        let response_logpt = self.y_log_pt.show(ctx, &mut self.plotter, event, &self.jets);
-        let response_phi = self.y_phi.show(ctx, &mut self.plotter, event, &self.jets);
+        let response_logpt = self.y_log_pt.show(ctx, &mut self.plotter, &event, &self.jets);
+        let response_phi = self.y_phi.show(ctx, &mut self.plotter, &event, &self.jets);
         let response = response_logpt.or(response_phi);
         match response {
             Some(PlotResponse::Selected(particle)) => {
@@ -315,7 +335,7 @@ impl eframe::App for TemplateApp {
         if let Some(path) = self.export_win.show(ctx) {
             if let Err(err) = export(
                 path,
-                event,
+                &event,
                 &self.jets,
                 self.plotter.r_jet,
                 kind,
@@ -338,7 +358,7 @@ impl eframe::App for TemplateApp {
 
         self.draw_bottom_panel(ctx);
 
-        self.draw_central_panel(ctx);
+        self.draw_central_panel(ctx, &event);
 
         self.check_input(ctx);
     }

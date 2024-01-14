@@ -16,6 +16,7 @@ use num_traits::clamp_max;
 use num_traits::float::Float;
 use particle_id::ParticleID;
 use log::debug;
+use plotters::style::{RGBAColor, RGBColor};
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, Display};
 
@@ -357,72 +358,103 @@ impl Plotter {
         response
     }
 
-    pub fn plot_3d<D>(
-        &self,
+    pub fn plot_3d(
+        &mut self,
         event: &Event,
         _jets: &[PseudoJet],
-        root: D
-    ) -> !
+        img: &mut String,
+        size: [usize; 2]
+    ) -> Result<()>
     {
-        todo!()
-        // let root = root.into_drawing_area();
+        use plotters::prelude::*;
+        let [width, height] = size;
+        let backend = SVGBackend::with_string(
+            img,
+            (width as u32, height as u32)
+        ).into_drawing_area();
         // root.fill(&to_plotters_col(self.colour.background))?;
-        // // let root = root.margin(10, 10, 10, 10);
-        // let range = (-1.0..1.0).step(0.1);
-        // {
-        // let mut chart = ChartBuilder::on(&root)
-        //     .margin(5)
-        //     .set_all_label_area_size(5)
-        //     .set_label_area_size(LabelAreaPosition::Left, 110)
-        //     .set_label_area_size(LabelAreaPosition::Bottom, 80)
-        //     .build_cartesian_3d(range.clone(), range.clone(), range)?;
+        // let root = root.margin(10, 10, 10, 10);
+        let range = (-1.0..1.0).step(0.1);
+        {
+            let mut chart = ChartBuilder::on(&backend)
+                .margin(5)
+                .set_all_label_area_size(5)
+                .set_label_area_size(LabelAreaPosition::Left, 110)
+                .set_label_area_size(LabelAreaPosition::Bottom, 80)
+                .build_cartesian_3d(range.clone(), range.clone(), range)?;
 
-        // chart.with_projection(|mut pb| {
-        //     pb.pitch = self.settings_3d.projection.pitch;
-        //     pb.yaw = self.settings_3d.projection.yaw;
-        //     pb.scale = self.settings_3d.projection.scale;
-        //     pb.into_matrix()
-        // });
+            chart.with_projection(|mut pb| {
+                pb.pitch = self.settings_3d.projection.pitch;
+                pb.yaw = self.settings_3d.projection.yaw;
+                pb.scale = self.settings_3d.projection.scale;
+                pb.into_matrix()
+            });
 
-        // const R: f64 = 0.5;
-        // const L: f64 = 0.5;
-        // for z in [-L, L] {
-        //     chart.draw_series(LineSeries::new(
-        //         (0..=100).map(
-        //             |t| {
-        //                 let phi = 2.*PI*(t as f64) /  100.;
-        //                 (R*phi.cos(), R*phi.sin(), z)
-        //             }
-        //         ),
-        //         &to_plotters_col(self.colour.frame),
-        //     ))?;
-        // }
-        // chart.draw_series(LineSeries::new(
-        //     (-1..=1).map(|t| {
-        //         let t = t as f64;
-        //         (R, 0., L*t)
-        //     }),
-        //     &to_plotters_col(self.colour.frame),
-        // ))?;
+            const R: f64 = 0.5;
+            let golden_ratio: f64 = (1. + f64::sqrt(5.)) / 2.;
+            let l: f64 = golden_ratio * R;
+            let mut pts = Vec::new();
+            const NUM_PETALS: usize = 8;
+            // hack to avoid overlapping grid lines
+            const DELTA_PHI: f64 = 2.*PI / 11.;
+            const LIGHT_BLUE: RGBColor = RGBColor(128, 128, 255);
+            for t in 0..=NUM_PETALS {
+                let phi = 2.*PI*(t as f64) / (NUM_PETALS as f64) + DELTA_PHI;
+                pts.push((R*phi.cos(), R*phi.sin(), 0.));
+            }
+            for z in [-l, l] {
+                chart.draw_series(
+                    pts.windows(2)
+                        .map(|pts| {
+                            let mut pts = [pts[0], pts[1], (0., 0., 0.)];
+                            for pt in &mut pts {
+                                pt.2 = z;
+                            }
+                            Polygon::new(pts, LIGHT_BLUE.mix(0.2))
+                        })
+                )?;
+            }
+            chart.draw_series(
+                pts.windows(2)
+                    .map(|pts| {
+                        let mut pts = [pts[0], pts[1], pts[1], pts[0]];
+                        pts[0].2 = -l;
+                        pts[1].2 = -l;
+                        pts[2].2 = l;
+                        pts[3].2 = l;
+                        Polygon::new(pts, LIGHT_BLUE.mix(0.1))
+                    })
+            )?;
+            for pt in &pts {
+                chart.draw_series(LineSeries::new(
+                    (0..=1).map(|t| {
+                        let mut pt = *pt;
+                        pt.2 = (2 * t - 1) as f64 * l;
+                        pt
+                    }),
+                    LIGHT_BLUE.mix(0.2)
+                ))?;
+            }
 
-        // for out in &event.out {
-        //     let mut coord = [out.p[1], out.p[2], out.p[3]];
-        //     for c in &mut coord {
-        //         *c = 2./PI*c.atan()
-        //     }
+            for out in &event.out {
+                let mut coord = [out.p[1], out.p[2], out.p[3]];
+                for c in &mut coord {
+                    *c = 2./PI*c.atan()
+                }
 
-        //     // chart.draw_series(LineSeries::new(
-        //     //     (0..=1).map(
-        //     //         |t| {
-        //     //             let t = t as f64;
-        //     //             (t*coord[0], t*coord[1], t*coord[2])
-        //     //         }
-        //     //     ),
-        //     //     &self.get_particle_colour(out.id),
-        //     // ))?;
-        // }
-        // }
-        // Ok(root)
+                chart.draw_series(LineSeries::new(
+                    (0..=1).map(
+                        |t| {
+                            let t = t as f64;
+                            (t*coord[0], t*coord[1], t*coord[2])
+                        }
+                    ),
+                    &to_plotters_col(self.get_particle_style(out.id).colour),
+                ))?;
+            }
+        }
+
+        Ok(())
     }
 
     pub(crate) fn get_particle_style(&mut self, pid: ParticleID) -> ParticleStyle {
@@ -680,4 +712,9 @@ impl ExportFormat {
             ExportFormat::Asymptote => "asy",
         }
     }
+}
+
+fn to_plotters_col(col: egui::Color32) -> RGBAColor {
+    let (r,g,b,a) = col.to_tuple();
+    RGBAColor(r, g, b, (a as f64) / (u8::MAX as f64))
 }
