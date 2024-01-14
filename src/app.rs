@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::spawn;
 
@@ -161,7 +160,7 @@ impl TemplateApp {
         &mut self,
         ctx: &Context,
         ui: &mut egui::Ui,
-        frame: &mut eframe::Frame,
+        _frame: &mut eframe::Frame,
     ) {
         egui::menu::bar(ui, |ui| {
             #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
@@ -240,7 +239,7 @@ impl TemplateApp {
             let Vec2{x, y}= ui.available_size();
             let [width, height] = [x as usize, y as usize];
             let mut img = String::new();
-            self.plotter.plot_3d(event, &self.jets, &mut img, [width, height]);
+            self.plotter.plot_3d(event, &self.jets, &mut img, [width, height]).unwrap();
             let tree = usvg::Tree::from_str(&img, &Default::default()).unwrap();
             let tree = resvg::Tree::from_usvg(&tree);
             let mut data = vec![0u8; width  * height * resvg::tiny_skia::BYTES_PER_PIXEL];

@@ -4,7 +4,6 @@ mod app;
 mod clustering;
 mod event;
 mod export;
-mod font;
 mod particle;
 mod plotter;
 mod windows;

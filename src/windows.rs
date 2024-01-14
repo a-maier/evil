@@ -9,8 +9,6 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
 use crate::event::Event;
-use crate::font::{Font, FontFamily, FontStyle};
-use crate::particle::Particle;
 use crate::plotter::{self, Plotter, PlotResponse, ExportFormat, PlotKind};
 
 lazy_static!{

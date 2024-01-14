@@ -1,9 +1,8 @@
 // TODO: opacity
 use std::{io::Write, collections::HashSet, borrow::Cow};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use jetty::PseudoJet;
-use num_traits::Float;
 
 use crate::{Event, plotter::{PlotKind, self, y_min_max}, particle::Particle};
 

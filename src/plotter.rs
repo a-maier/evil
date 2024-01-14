@@ -1,22 +1,20 @@
 use crate::event::Event;
-use crate::font::Font;
 use crate::particle::{Particle, SpinType, spin_type};
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::iter::FromIterator;
 use std::f64::consts::PI;
-use std::ops::{Range, RangeInclusive};
+use std::ops::RangeInclusive;
 
 use anyhow::Result;
-use egui::{Ui, Stroke, Response};
+use egui::{Ui, Stroke};
 use egui_plot::{Plot, Legend, Points, PlotPoints, Polygon};
 use jetty::PseudoJet;
 use num_traits::clamp_max;
 use num_traits::float::Float;
 use particle_id::ParticleID;
 use log::debug;
-use plotters::style::{RGBAColor, RGBColor};
+use plotters::style::RGBAColor;
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, Display};
 
@@ -196,17 +194,11 @@ impl Default for Settings3D {
 pub struct Plotter {
     pub r_jet: f64,
 
-    pub font: Font,
-
     pub settings: Settings,
     pub settings_3d: Settings3D,
 }
 
 impl Plotter {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn plot_y_phi(
         &mut self,
         ui: &mut Ui,
@@ -617,14 +609,6 @@ fn rectangle(coord: [(f64, f64); 2]) -> egui_plot::Polygon {
         [coord[1].0, coord[1].1],
         [coord[0].0, coord[1].1],
     ])
-}
-
-fn add<T: std::ops::Add>(t1: (T, T), t2: (T, T)) -> (T::Output, T::Output) {
-    (t1.0 + t2.0, t1.1 + t2.1)
-}
-
-fn sub<T: std::ops::Sub>(t1: (T, T), t2: (T, T)) -> (T::Output, T::Output) {
-    (t1.0 - t2.0, t1.1 - t2.1)
 }
 
 fn phi_tick_label(
