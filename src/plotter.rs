@@ -1,5 +1,5 @@
 use crate::event::Event;
-use crate::particle::{Particle, SpinType, spin_type};
+use crate::particle::{spin_type, Particle, SpinType};
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -7,16 +7,16 @@ use std::f64::consts::PI;
 use std::ops::RangeInclusive;
 
 use anyhow::Result;
-use egui::{Ui, Stroke};
-use egui_plot::{Plot, Legend, Points, PlotPoints, Polygon};
+use egui::{Stroke, Ui};
+use egui_plot::{Legend, Plot, PlotPoints, Points, Polygon};
 use jetty::PseudoJet;
+use log::debug;
 use num_traits::clamp_max;
 use num_traits::float::Float;
 use particle_id::ParticleID;
-use log::debug;
 use plotters::style::RGBAColor;
 use serde::{Deserialize, Serialize};
-use strum::{EnumIter, Display};
+use strum::{Display, EnumIter};
 
 const PHI_SCALE: f64 = PI / 2.;
 const PHI_AXIS_MIN: f64 = -2.2;
@@ -35,7 +35,7 @@ impl ParticleStyle {
         Self {
             colour: default_colour_for(p),
             shape: default_shape_for(p),
-            size: DEFAULT_MARKER_SIZE
+            size: DEFAULT_MARKER_SIZE,
         }
     }
 }
@@ -44,11 +44,13 @@ fn default_shape_for(p: ParticleID) -> MarkerShape {
     use MarkerShape::*;
     match spin_type(p) {
         SpinType::Boson => Circle,
-        SpinType::Fermion => if p.is_anti_particle() {
-            Diamond
-        } else {
-            Square
-        },
+        SpinType::Fermion => {
+            if p.is_anti_particle() {
+                Diamond
+            } else {
+                Square
+            }
+        }
         _ => Asterisk,
     }
 }
@@ -65,12 +67,12 @@ fn default_colour_for(p: ParticleID) -> egui::Color32 {
     const DEFAULT_COLOR: egui::Color32 = egui::Color32::GRAY;
     use particle_id::sm_elementary_particles as sm;
     match p {
-        sm::down =>  CYAN,
-        sm::up =>  PINK,
-        sm::strange =>  egui::Color32::BLUE,
-        sm::charm =>  MAGENTA,
-        sm::bottom =>  egui::Color32::DARK_BLUE,
-        sm::top =>  VIOLET,
+        sm::down => CYAN,
+        sm::up => PINK,
+        sm::strange => egui::Color32::BLUE,
+        sm::charm => MAGENTA,
+        sm::bottom => egui::Color32::DARK_BLUE,
+        sm::top => VIOLET,
         sm::electron => egui::Color32::YELLOW,
         sm::electron_neutrino => egui::Color32::WHITE,
         sm::muon => ORANGE,
@@ -82,14 +84,25 @@ fn default_colour_for(p: ParticleID) -> egui::Color32 {
         sm::Z => egui::Color32::RED,
         sm::W_plus => egui::Color32::DARK_GREEN,
         sm::Higgs => egui::Color32::WHITE,
-        _ => DEFAULT_COLOR
+        _ => DEFAULT_COLOR,
     }
 }
 
 // egui MarkerShape doesn't derive Deserialize/Serialize
-#[derive(Deserialize, Serialize)]
-#[derive(Display, EnumIter)]
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(
+    Deserialize,
+    Serialize,
+    Display,
+    EnumIter,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    PartialOrd,
+    Eq,
+    Ord,
+    Hash,
+)]
 pub enum MarkerShape {
     Circle,
     Diamond,
@@ -149,8 +162,12 @@ impl Settings {
         *self.get_particle_style_mut(pid)
     }
 
-    pub fn get_particle_style_mut(&mut self, pid: ParticleID) -> &mut ParticleStyle {
-        self.particles.entry(pid)
+    pub fn get_particle_style_mut(
+        &mut self,
+        pid: ParticleID,
+    ) -> &mut ParticleStyle {
+        self.particles
+            .entry(pid)
             .or_insert_with(|| ParticleStyle::default_for(pid))
     }
 }
@@ -185,7 +202,7 @@ impl Default for Settings3D {
                 pitch: 0.0,
                 yaw: 1.0,
                 scale: 1.0,
-            }
+            },
         }
     }
 }
@@ -219,7 +236,7 @@ impl Plotter {
             .y_axis_formatter(phi_tick_label)
             .show_grid([false, false])
             .legend(Legend::default())
-            .label_formatter(|name, val|{
+            .label_formatter(|name, val| {
                 let y = val.x;
                 let phi = clamp_phi_coord(val.y) * PHI_SCALE;
                 format!("{name}\ny = {y:.2}\nφ = {phi:.2}")
@@ -240,7 +257,7 @@ impl Plotter {
                     debug!("Click at {click_pos:?}");
                     let mut closest_dist = f32::MAX;
                     let Some(mut closest) = event.out.first() else {
-                        return
+                        return;
                     };
                     for particle in event.out.iter() {
                         let phi_coord = particle.phi / PHI_SCALE;
@@ -258,11 +275,12 @@ impl Plotter {
                     }
                 } else {
                     ui_response.clone().context_menu(|ui| {
-                        response = export_menu(ui).map(
-                            |format| PlotResponse::Export {
+                        response = export_menu(ui).map(|format| {
+                            PlotResponse::Export {
                                 kind: PlotKind::YPhi,
-                                format
-                            });
+                                format,
+                            }
+                        });
                     });
                 }
             });
@@ -277,11 +295,15 @@ impl Plotter {
     ) -> Option<PlotResponse> {
         use PlotResponse::*;
         let mut response = None;
-        let max_logpt = event.out.iter()
+        let max_logpt = event
+            .out
+            .iter()
             .map(|p| p.pt.log10())
             .min_by(|a, b| b.partial_cmp(a).unwrap())
             .unwrap_or_default();
-        let min_logpt = event.out.iter()
+        let min_logpt = event
+            .out
+            .iter()
             .map(|p| p.pt.log10())
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or_default();
@@ -301,7 +323,7 @@ impl Plotter {
             .y_axis_formatter(logpt_tick_label)
             .show_grid([false, false])
             .legend(Legend::default())
-            .label_formatter(|name, val|{
+            .label_formatter(|name, val| {
                 let y = val.x;
                 let pt = 10f64.powf(val.y);
                 format!("{name}\ny = {y:.2}\npT = {pt:.2}")
@@ -321,11 +343,11 @@ impl Plotter {
                     debug!("Click at {click_pos:?}");
                     let mut closest_dist = f32::MAX;
                     let Some(mut closest) = event.out.first() else {
-                        return
+                        return;
                     };
                     for particle in event.out.iter() {
                         let pt_coord = particle.pt.log10();
-                        let pos = [particle.y  as f32, pt_coord as f32].into();
+                        let pos = [particle.y as f32, pt_coord as f32].into();
                         let dist = click_pos.distance_sq(pos);
                         if dist < closest_dist {
                             closest_dist = dist;
@@ -339,11 +361,12 @@ impl Plotter {
                     }
                 } else {
                     ui_response.clone().context_menu(|ui| {
-                        response = export_menu(ui).map(
-                            |format| PlotResponse::Export {
+                        response = export_menu(ui).map(|format| {
+                            PlotResponse::Export {
                                 kind: PlotKind::YLogPt,
-                                format
-                            });
+                                format,
+                            }
+                        });
                     });
                 }
             });
@@ -355,15 +378,13 @@ impl Plotter {
         event: &Event,
         _jets: &[PseudoJet],
         img: &mut String,
-        size: [usize; 2]
-    ) -> Result<()>
-    {
+        size: [usize; 2],
+    ) -> Result<()> {
         use plotters::prelude::*;
         let [width, height] = size;
-        let backend = SVGBackend::with_string(
-            img,
-            (width as u32, height as u32)
-        ).into_drawing_area();
+        let backend =
+            SVGBackend::with_string(img, (width as u32, height as u32))
+                .into_drawing_area();
         // root.fill(&to_plotters_col(self.colour.background))?;
         // let root = root.margin(10, 10, 10, 10);
         let range = (-1.0..1.0).step(0.1);
@@ -388,35 +409,30 @@ impl Plotter {
             let mut pts = Vec::new();
             const NUM_PETALS: usize = 12;
             // hack to avoid overlapping grid lines
-            const DELTA_PHI: f64 = 2.*PI / 11.;
+            const DELTA_PHI: f64 = 2. * PI / 11.;
             const LIGHT_BLUE: RGBColor = RGBColor(128, 128, 255);
             for t in 0..=NUM_PETALS {
-                let phi = 2.*PI*(t as f64) / (NUM_PETALS as f64) + DELTA_PHI;
-                pts.push((R*phi.cos(), R*phi.sin(), 0.));
+                let phi =
+                    2. * PI * (t as f64) / (NUM_PETALS as f64) + DELTA_PHI;
+                pts.push((R * phi.cos(), R * phi.sin(), 0.));
             }
             for z in [-l, l] {
-                chart.draw_series(
-                    pts.windows(2)
-                        .map(|pts| {
-                            let mut pts = [pts[0], pts[1], (0., 0., 0.)];
-                            for pt in &mut pts {
-                                pt.2 = z;
-                            }
-                            Polygon::new(pts, LIGHT_BLUE.mix(0.2))
-                        })
-                )?;
+                chart.draw_series(pts.windows(2).map(|pts| {
+                    let mut pts = [pts[0], pts[1], (0., 0., 0.)];
+                    for pt in &mut pts {
+                        pt.2 = z;
+                    }
+                    Polygon::new(pts, LIGHT_BLUE.mix(0.2))
+                }))?;
             }
-            chart.draw_series(
-                pts.windows(2)
-                    .map(|pts| {
-                        let mut pts = [pts[0], pts[1], pts[1], pts[0]];
-                        pts[0].2 = -l;
-                        pts[1].2 = -l;
-                        pts[2].2 = l;
-                        pts[3].2 = l;
-                        Polygon::new(pts, LIGHT_BLUE.mix(0.1))
-                    })
-            )?;
+            chart.draw_series(pts.windows(2).map(|pts| {
+                let mut pts = [pts[0], pts[1], pts[1], pts[0]];
+                pts[0].2 = -l;
+                pts[1].2 = -l;
+                pts[2].2 = l;
+                pts[3].2 = l;
+                Polygon::new(pts, LIGHT_BLUE.mix(0.1))
+            }))?;
             for pt in &pts {
                 chart.draw_series(LineSeries::new(
                     (0..=1).map(|t| {
@@ -424,23 +440,21 @@ impl Plotter {
                         pt.2 = (2 * t - 1) as f64 * l;
                         pt
                     }),
-                    LIGHT_BLUE.mix(0.2)
+                    LIGHT_BLUE.mix(0.2),
                 ))?;
             }
 
             for out in &event.out {
                 let mut coord = [out.p[1], out.p[2], out.p[3]];
                 for c in &mut coord {
-                    *c = 2./PI*c.atan()
+                    *c = 2. / PI * c.atan()
                 }
 
                 chart.draw_series(LineSeries::new(
-                    (0..=1).map(
-                        |t| {
-                            let t = t as f64;
-                            (t*coord[0], t*coord[1], t*coord[2])
-                        }
-                    ),
+                    (0..=1).map(|t| {
+                        let t = t as f64;
+                        (t * coord[0], t * coord[1], t * coord[2])
+                    }),
                     &to_plotters_col(self.get_particle_style(out.id).colour),
                 ))?;
             }
@@ -449,7 +463,10 @@ impl Plotter {
         Ok(())
     }
 
-    pub(crate) fn get_particle_style(&mut self, pid: ParticleID) -> ParticleStyle {
+    pub(crate) fn get_particle_style(
+        &mut self,
+        pid: ParticleID,
+    ) -> ParticleStyle {
         self.settings.get_particle_style(pid)
     }
 
@@ -457,7 +474,7 @@ impl Plotter {
         &mut self,
         ui: &mut egui_plot::PlotUi,
         particle_id: ParticleID,
-        centre: [f64; 2]
+        centre: [f64; 2],
     ) {
         let ParticleStyle {
             colour,
@@ -475,12 +492,8 @@ impl Plotter {
         ui.points(pt);
     }
 
-    fn draw_y_phi(
-        &mut self,
-        ui: &mut egui_plot::PlotUi,
-        particle: &Particle
-    ) {
-        let Particle {id, y, phi, ..} = particle;
+    fn draw_y_phi(&mut self, ui: &mut egui_plot::PlotUi, particle: &Particle) {
+        let Particle { id, y, phi, .. } = particle;
 
         debug!("Drawing particle {} at (y, φ) = ({y}, {phi})", id.id());
         let mut phi_min = ui.plot_bounds().min()[1].floor() as i64;
@@ -493,17 +506,16 @@ impl Plotter {
         }
     }
 
-    fn draw_y_phi_jet(
-        &self,
-        ui: &mut egui_plot::PlotUi,
-        jet: &PseudoJet
-    ) {
+    fn draw_y_phi_jet(&self, ui: &mut egui_plot::PlotUi, jet: &PseudoJet) {
         let y: f64 = jet.rap().into();
         let mut phi: f64 = jet.phi().into();
         if phi > PI {
             phi -= 2.0 * PI;
         }
-        debug!("Drawing jet with radius {} at (y, φ) = ({y}, {phi})", self.r_jet);
+        debug!(
+            "Drawing jet with radius {} at (y, φ) = ({y}, {phi})",
+            self.r_jet
+        );
         let mut phi_min = ui.plot_bounds().min()[1].floor() as i64;
         phi_min -= phi_min % 4;
         let phi_max = ui.plot_bounds().max()[1];
@@ -514,11 +526,7 @@ impl Plotter {
         }
     }
 
-    fn draw_jet_circle(
-        &self,
-        ui: &mut egui_plot::PlotUi,
-        centre: [f64; 2]
-    ) {
+    fn draw_jet_circle(&self, ui: &mut egui_plot::PlotUi, centre: [f64; 2]) {
         let [y, phi] = centre;
         let jet_col = self.settings.jets;
         let r = self.r_jet;
@@ -528,31 +536,32 @@ impl Plotter {
             100,
         ));
 
-        let jet_circle = circle
-            .width(0.)
-            .fill_color(jet_col)
-            .name("jet");
+        let jet_circle = circle.width(0.).fill_color(jet_col).name("jet");
         ui.polygon(jet_circle);
     }
 
     fn draw_y_logpt(
         &mut self,
         ui: &mut egui_plot::PlotUi,
-        particle: &Particle
+        particle: &Particle,
     ) {
         let Particle { id, y, pt, .. } = particle;
-        debug!("Drawing particle {} at (y, log(pt)) = ({y}, {})", id.id(), pt.log10());
+        debug!(
+            "Drawing particle {} at (y, log(pt)) = ({y}, {})",
+            id.id(),
+            pt.log10()
+        );
         let centre = [*y, pt.log10()];
         self.draw_particle_at(ui, *id, centre);
     }
 
-    fn draw_y_logpt_jet(
-        &self,
-        ui: &mut egui_plot::PlotUi,
-        jet: &PseudoJet
-    ) {
-        debug!("Drawing jet at (y, log(pt)) = ({}, {})", jet.rap(), jet.pt2().log10()/2.);
-        let centre = (f64::from(jet.rap()), (jet.pt2().log10()/2.).into());
+    fn draw_y_logpt_jet(&self, ui: &mut egui_plot::PlotUi, jet: &PseudoJet) {
+        debug!(
+            "Drawing jet at (y, log(pt)) = ({}, {})",
+            jet.rap(),
+            jet.pt2().log10() / 2.
+        );
+        let centre = (f64::from(jet.rap()), (jet.pt2().log10() / 2.).into());
         let jet_col = self.settings.jets;
         let pt_min = ui.plot_bounds().min()[1];
         let coord = [
@@ -565,29 +574,22 @@ impl Plotter {
             .fill_color(jet_col);
         ui.polygon(rectangle);
     }
-
 }
 
 pub(crate) fn y_min_max(p: &[Particle]) -> [f64; 2] {
-    let y_min = p.iter()
+    let y_min = p
+        .iter()
         .map(|p| p.y)
         .min_by(|a, b| a.total_cmp(b))
         .unwrap_or_default();
-    let y_min = if y_min < 0. {
-        1.1 * y_min
-    } else {
-        0.9 * y_min
-    };
+    let y_min = if y_min < 0. { 1.1 * y_min } else { 0.9 * y_min };
     let y_min = f64::min(y_min, -4.5);
-    let y_max = p.iter()
+    let y_max = p
+        .iter()
         .map(|p| p.y)
         .max_by(|a, b| a.total_cmp(b))
         .unwrap_or_default();
-    let y_max = if y_max < 0. {
-        0.9 * y_max
-    } else {
-        1.1 * y_max
-    };
+    let y_max = if y_max < 0. { 0.9 * y_max } else { 1.1 * y_max };
     let y_max = f64::max(y_max, 4.5);
     [y_min, y_max]
 }
@@ -614,7 +616,7 @@ fn rectangle(coord: [(f64, f64); 2]) -> egui_plot::Polygon {
 fn phi_tick_label(
     coord: f64,
     _max_chars: usize,
-    _axis_range: &RangeInclusive<f64>
+    _axis_range: &RangeInclusive<f64>,
 ) -> String {
     let c = clamp_phi_coord(coord);
     match c {
@@ -623,8 +625,9 @@ fn phi_tick_label(
         c if c == 0.0 => "0",
         c if c == -1.0 => "-π/2",
         c if c == -2.0 => "-π",
-        _  => ""
-    }.to_string()
+        _ => "",
+    }
+    .to_string()
 }
 
 fn clamp_phi_coord(coord: f64) -> f64 {
@@ -641,7 +644,7 @@ fn clamp_phi_coord(coord: f64) -> f64 {
 fn logpt_tick_label(
     coord: f64,
     _max_chars: usize,
-    _axis_range: &RangeInclusive<f64>
+    _axis_range: &RangeInclusive<f64>,
 ) -> String {
     if coord != coord.round() {
         return String::new();
@@ -651,13 +654,14 @@ fn logpt_tick_label(
 
 fn fmt_superscript(mut i: i64) -> String {
     const SUPERSCRIPT_MINUS: char = '⁻';
-    const SUPERSCRIPT_DIGITS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+    const SUPERSCRIPT_DIGITS: &[char] =
+        &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
     let mut res = String::new();
     let neg = match i.cmp(&0) {
         Ordering::Less => {
             i = -i;
             true
-        },
+        }
         Ordering::Equal => return SUPERSCRIPT_DIGITS[0].to_string(),
         Ordering::Greater => false,
     };
@@ -672,10 +676,12 @@ fn fmt_superscript(mut i: i64) -> String {
     res.chars().rev().collect()
 }
 
-
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum PlotResponse {
-    Export{kind: PlotKind, format: ExportFormat},
+    Export {
+        kind: PlotKind,
+        format: ExportFormat,
+    },
     Selected(Particle),
 }
 
@@ -699,6 +705,6 @@ impl ExportFormat {
 }
 
 fn to_plotters_col(col: egui::Color32) -> RGBAColor {
-    let (r,g,b,a) = col.to_tuple();
+    let (r, g, b, a) = col.to_tuple();
     RGBAColor(r, g, b, (a as f64) / (u8::MAX as f64))
 }

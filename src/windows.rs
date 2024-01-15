@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
 use crate::event::Event;
-use crate::plotter::{self, Plotter, PlotResponse, ExportFormat, PlotKind};
+use crate::plotter::{self, ExportFormat, PlotKind, PlotResponse, Plotter};
 
-lazy_static!{
+lazy_static! {
     static ref FONT_NAMES: Vec<String> = {
         egui::FontDefinitions::default()
             .families
@@ -47,20 +47,16 @@ impl YLogPtWin {
         event: &Event,
         jets: &[PseudoJet],
     ) -> Option<PlotResponse> {
-        if !self.is_open { return None }
+        if !self.is_open {
+            return None;
+        }
 
         egui::Window::new("Transverse momentum over rapidity")
             .title_bar(true)
             .min_width(100.)
             .min_height(100.)
-            .show(ctx, |ui| {
-                plotter.plot_y_logpt(
-                    ui,
-                    event,
-                    jets,
-                )
-            }).and_then(|e| e.inner.flatten())
-
+            .show(ctx, |ui| plotter.plot_y_logpt(ui, event, jets))
+            .and_then(|e| e.inner.flatten())
     }
 }
 
@@ -87,19 +83,16 @@ impl YPhiWin {
         event: &Event,
         jets: &[PseudoJet],
     ) -> Option<PlotResponse> {
-        if !self.is_open { return None }
+        if !self.is_open {
+            return None;
+        }
 
         egui::Window::new("Azimuthal angle over rapidity")
             .title_bar(true)
             .min_width(100.)
             .min_height(100.)
-            .show(ctx, |ui| {
-                plotter.plot_y_phi(
-                    ui,
-                    event,
-                    jets,
-                )
-            }).and_then(|e| e.inner.flatten())
+            .show(ctx, |ui| plotter.plot_y_phi(ui, event, jets))
+            .and_then(|e| e.inner.flatten())
     }
 }
 
@@ -115,7 +108,7 @@ impl ParticleStyleChoiceWin {
     pub(crate) fn show(
         &mut self,
         ctx: &Context,
-        settings: &mut plotter::Settings
+        settings: &mut plotter::Settings,
     ) {
         let name = self.id.name().or(self.id.symbol());
         let title = if let Some(name) = name {
@@ -124,9 +117,8 @@ impl ParticleStyleChoiceWin {
             format!("Plot style for particle id {}", self.id.id())
         };
         let mut is_open = self.is_open;
-        let mut win = egui::Window::new(title)
-            .open(&mut is_open)
-            .title_bar(true);
+        let mut win =
+            egui::Window::new(title).open(&mut is_open).title_bar(true);
         if let Some(pos) = self.pos.take() {
             win = win.current_pos(pos);
         }
@@ -187,11 +179,11 @@ impl Default for ExportDialogue {
             format: ExportFormat::Asymptote, // some default, doesn't matter which
             kind: PlotKind::YLogPt,
             event_id: Default::default(),
-            dialogue: egui_file::FileDialog::save_file(None).title("Export event")
+            dialogue: egui_file::FileDialog::save_file(None)
+                .title("Export event"),
         }
     }
- }
-
+}
 
 impl ExportDialogue {
     pub(crate) fn show(&mut self, ctx: &Context) -> Option<&Path> {
@@ -211,7 +203,7 @@ impl ExportDialogue {
                 self.event_id,
                 self.kind,
                 self.format.suffix()
-        ));
+            ));
         self.dialogue.open();
     }
 }
@@ -224,7 +216,8 @@ pub struct ImportDialogue {
 impl Default for ImportDialogue {
     fn default() -> Self {
         Self {
-            dialogue: egui_file::FileDialog::open_file(None).title("Open event file")
+            dialogue: egui_file::FileDialog::open_file(None)
+                .title("Open event file"),
         }
     }
 }
@@ -240,8 +233,8 @@ impl ImportDialogue {
     }
 
     pub(crate) fn open(&mut self) {
-        self.dialogue = egui_file::FileDialog::open_file(None)
-            .title("Open event file");
+        self.dialogue =
+            egui_file::FileDialog::open_file(None).title("Open event file");
         self.dialogue.open();
     }
 }

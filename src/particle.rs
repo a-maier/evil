@@ -1,5 +1,5 @@
-use particle_id::ParticleID;
 use particle_id::sm_elementary_particles::gluon;
+use particle_id::ParticleID;
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Particle {
@@ -17,7 +17,7 @@ impl Particle {
             p,
             y: y(&p),
             phi: phi(&p),
-            pt: pt(&p)
+            pt: pt(&p),
         }
     }
 
@@ -79,7 +79,7 @@ pub fn spin_type(id: ParticleID) -> SpinType {
     match id.id().abs() {
         1..=16 => Fermion,
         21..=25 => Boson,
-        _ => Unknown
+        _ => Unknown,
     }
 }
 

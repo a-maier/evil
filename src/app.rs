@@ -1,18 +1,22 @@
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::spawn;
 
+use egui::{
+    Context, DragValue, KeyboardShortcut, Modifiers, Vec2, ViewportCommand,
+};
 use event_file_reader::EventFileReader as Reader;
-use egui::{Context, ViewportCommand, DragValue, KeyboardShortcut, Modifiers, Vec2};
 use jetty::PseudoJet;
-use log::{debug, trace, error};
+use log::{debug, error, trace};
 use resvg::tiny_skia::PixmapMut;
 use usvg::TreeParsing;
 
-use crate::clustering::{ClusterSettings, cluster};
+use crate::clustering::{cluster, ClusterSettings};
 use crate::event::Event;
 use crate::export::export;
-use crate::plotter::{Plotter, PlotResponse};
-use crate::windows::{YPhiWin, YLogPtWin, ParticleStyleChoiceWin, ExportDialogue, ImportDialogue};
+use crate::plotter::{PlotResponse, Plotter};
+use crate::windows::{
+    ExportDialogue, ImportDialogue, ParticleStyleChoiceWin, YLogPtWin, YPhiWin,
+};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -56,9 +60,7 @@ struct BottomPanelData {
 
 impl Default for BottomPanelData {
     fn default() -> Self {
-        Self {
-            space: 0.
-        }
+        Self { space: 0. }
     }
 }
 
@@ -75,11 +77,15 @@ impl TemplateApp {
         // .ttf and .otf files supported.
         fonts.font_data.insert(
             "DejaVuSans".to_owned(),
-            egui::FontData::from_static(include_bytes!("../fonts/DejaVuSans.ttf")),
+            egui::FontData::from_static(include_bytes!(
+                "../fonts/DejaVuSans.ttf"
+            )),
         );
         fonts.font_data.insert(
             "DejaVuSansMono".to_owned(),
-            egui::FontData::from_static(include_bytes!("../fonts/DejaVuSansMono.ttf")),
+            egui::FontData::from_static(include_bytes!(
+                "../fonts/DejaVuSansMono.ttf"
+            )),
         );
 
         // Put my font first (highest priority) for proportional text:
@@ -99,7 +105,6 @@ impl TemplateApp {
         // Tell egui to use these fonts:
         cc.egui_ctx.set_fonts(fonts);
 
-
         // Disable feathering as it allegedly causes artifacts with egui-plotter
         let context = &cc.egui_ctx;
 
@@ -117,32 +122,41 @@ impl TemplateApp {
         let (s_file, r_file) = channel();
         let (s_ev, r_ev) = channel();
         let (s_msg, r_msg) = channel();
-        spawn(move || while let Ok(file) = r_file.recv() {
-            if s_msg.send(format!("Loading events from {file}")).is_err() {
-                break;
-            }
-            let reader = match Reader::new(&file) {
-                Ok(reader) => reader,
-                Err(err) => if s_msg.send(format!("Failed to read from {file}: {err}")).is_err() {
+        spawn(move || {
+            while let Ok(file) = r_file.recv() {
+                if s_msg.send(format!("Loading events from {file}")).is_err() {
                     break;
-                } else {
-                    continue;
                 }
-            };
-            for event in reader {
-                match event {
-                    Ok(event) => {
-                        if s_ev.send(event.into()).is_err() {
+                let reader = match Reader::new(&file) {
+                    Ok(reader) => reader,
+                    Err(err) => {
+                        if s_msg
+                            .send(format!("Failed to read from {file}: {err}"))
+                            .is_err()
+                        {
                             break;
+                        } else {
+                            continue;
                         }
                     }
-                    Err(err) => {
-                        let _ = s_msg.send(format!("Failed to read from {file}: {err}"));
+                };
+                for event in reader {
+                    match event {
+                        Ok(event) => {
+                            if s_ev.send(event.into()).is_err() {
+                                break;
+                            }
+                        }
+                        Err(err) => {
+                            let _ = s_msg.send(format!(
+                                "Failed to read from {file}: {err}"
+                            ));
+                        }
                     }
                 }
-            }
-            if s_msg.send(String::new()).is_err() {
-                break;
+                if s_msg.send(String::new()).is_err() {
+                    break;
+                }
             }
         });
         for file in std::env::args().skip(1) {
@@ -179,8 +193,14 @@ impl TemplateApp {
                 }
             });
             ui.menu_button("Windows", |ui| {
-                ui.checkbox(&mut self.y_log_pt.is_open, "Transverse momentum over rapidity");
-                ui.checkbox(&mut self.y_phi.is_open, "Azimuthal angle over rapidity");
+                ui.checkbox(
+                    &mut self.y_log_pt.is_open,
+                    "Transverse momentum over rapidity",
+                );
+                ui.checkbox(
+                    &mut self.y_phi.is_open,
+                    "Azimuthal angle over rapidity",
+                );
             });
             egui::global_dark_light_mode_switch(ui)
         });
@@ -191,7 +211,8 @@ impl TemplateApp {
             ui.horizontal(|ui| {
                 ui.add_space(self.bottom_panel.space);
                 // TODO: use black arrows, but the rightwards one is missing in DejaVu
-                let back_button = ui.add_enabled(self.event_idx > 0, egui::Button::new("⇦"));
+                let back_button =
+                    ui.add_enabled(self.event_idx > 0, egui::Button::new("⇦"));
                 if back_button.clicked() {
                     self.event_idx -= 1;
                 }
@@ -200,17 +221,17 @@ impl TemplateApp {
                 ui.add(
                     DragValue::new(&mut ev_nr)
                         .clamp_range(1..=self.events.len())
-                        .suffix(format!("/{}", self.events.len()))
+                        .suffix(format!("/{}", self.events.len())),
                 );
                 self.event_idx = ev_nr - 1;
                 let can_forward = 1 + self.event_idx < self.events.len();
-                let forward_button = ui.add_enabled(can_forward, egui::Button::new("⇨"));
+                let forward_button =
+                    ui.add_enabled(can_forward, egui::Button::new("⇨"));
                 if forward_button.clicked() {
                     self.event_idx += 1;
                 }
-                self.bottom_panel.space = (
-                    self.bottom_panel.space + ui.available_width()
-                ) / 2.;
+                self.bottom_panel.space =
+                    (self.bottom_panel.space + ui.available_width()) / 2.;
             })
         });
     }
@@ -229,27 +250,35 @@ impl TemplateApp {
         trace!("recluster: {:#?}", self.jets);
     }
 
-    fn draw_central_panel(
-        &mut self,
-        ctx: &Context,
-        event: &Event,
-    ) {
+    fn draw_central_panel(&mut self, ctx: &Context, event: &Event) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.weak(&self.msg);
-            let Vec2{x, y}= ui.available_size();
+            let Vec2 { x, y } = ui.available_size();
             let [width, height] = [x as usize, y as usize];
             let mut img = String::new();
-            self.plotter.plot_3d(event, &self.jets, &mut img, [width, height]).unwrap();
+            self.plotter
+                .plot_3d(event, &self.jets, &mut img, [width, height])
+                .unwrap();
             let tree = usvg::Tree::from_str(&img, &Default::default()).unwrap();
             let tree = resvg::Tree::from_usvg(&tree);
-            let mut data = vec![0u8; width  * height * resvg::tiny_skia::BYTES_PER_PIXEL];
-            let mut img = PixmapMut::from_bytes(&mut data, width as u32, height as u32).unwrap();
+            let mut data =
+                vec![0u8; width * height * resvg::tiny_skia::BYTES_PER_PIXEL];
+            let mut img =
+                PixmapMut::from_bytes(&mut data, width as u32, height as u32)
+                    .unwrap();
             tree.render(Default::default(), &mut img);
-            let img = egui::ColorImage::from_rgba_premultiplied([width, height], img.data_mut());
-            let img = egui::ImageData::from(img);
-            let texture = self.plot_3d.get_or_insert_with(
-                || ctx.load_texture("3D Plot", img.clone(), egui::TextureOptions::default())
+            let img = egui::ColorImage::from_rgba_premultiplied(
+                [width, height],
+                img.data_mut(),
             );
+            let img = egui::ImageData::from(img);
+            let texture = self.plot_3d.get_or_insert_with(|| {
+                ctx.load_texture(
+                    "3D Plot",
+                    img.clone(),
+                    egui::TextureOptions::default(),
+                )
+            });
             texture.set(img, egui::TextureOptions::default());
             let img = egui::load::SizedTexture::from_handle(texture);
             ui.image(img)
@@ -267,11 +296,13 @@ impl TemplateApp {
             if i.consume_shortcut(&ctrl_o) {
                 self.open_file_win.open();
             }
-            let right = KeyboardShortcut::new(Modifiers::NONE, egui::Key::ArrowRight);
+            let right =
+                KeyboardShortcut::new(Modifiers::NONE, egui::Key::ArrowRight);
             if i.consume_shortcut(&right) && !self.events.is_empty() {
                 self.event_idx = (self.event_idx + 1) % self.events.len();
             };
-            let left = KeyboardShortcut::new(Modifiers::NONE, egui::Key::ArrowLeft);
+            let left =
+                KeyboardShortcut::new(Modifiers::NONE, egui::Key::ArrowLeft);
             if i.consume_shortcut(&left) && !self.events.is_empty() {
                 if self.event_idx == 0 {
                     self.event_idx = self.events.len() - 1;
@@ -300,30 +331,36 @@ impl eframe::App for TemplateApp {
         }
         self.recluster();
 
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| self.menu(ctx, ui, frame));
+        egui::TopBottomPanel::top("top_panel")
+            .show(ctx, |ui| self.menu(ctx, ui, frame));
 
         let dummy = Event::default();
         let event = self.events.get(self.event_idx).unwrap_or(&dummy).clone();
 
-        let response_logpt = self.y_log_pt.show(ctx, &mut self.plotter, &event, &self.jets);
-        let response_phi = self.y_phi.show(ctx, &mut self.plotter, &event, &self.jets);
+        let response_logpt =
+            self.y_log_pt
+                .show(ctx, &mut self.plotter, &event, &self.jets);
+        let response_phi =
+            self.y_phi.show(ctx, &mut self.plotter, &event, &self.jets);
         let response = response_logpt.or(response_phi);
         match response {
             Some(PlotResponse::Selected(particle)) => {
                 self.particle_style_choice_win.id = particle.id;
-                self.particle_style_choice_win.set_pos(ctx.pointer_interact_pos());
+                self.particle_style_choice_win
+                    .set_pos(ctx.pointer_interact_pos());
                 self.particle_style_choice_win.is_open = true;
             }
-            Some(PlotResponse::Export{ kind, format }) => {
+            Some(PlotResponse::Export { kind, format }) => {
                 self.export_win.kind = kind;
                 self.export_win.format = format;
                 self.export_win.event_id = self.event_idx;
                 self.export_win.open();
             }
-            None => { },
+            None => {}
         }
 
-        self.particle_style_choice_win.show(ctx, &mut self.plotter.settings);
+        self.particle_style_choice_win
+            .show(ctx, &mut self.plotter.settings);
 
         if self.clustering.changed(ctx) {
             debug!("Clustering changed to {:?}", self.clustering);
@@ -339,7 +376,7 @@ impl eframe::App for TemplateApp {
                 self.plotter.r_jet,
                 kind,
                 format,
-                &self.plotter.settings
+                &self.plotter.settings,
             ) {
                 error!("{err}");
                 self.msg = err.to_string();
@@ -351,7 +388,8 @@ impl eframe::App for TemplateApp {
                 self.events.clear();
                 let _ = self.s_file.as_mut().unwrap().send(path.to_owned());
             } else {
-                self.msg = format!("Failed to open {path:?}: Cannot convert to UTF-8");
+                self.msg =
+                    format!("Failed to open {path:?}: Cannot convert to UTF-8");
             }
         }
 
@@ -361,5 +399,4 @@ impl eframe::App for TemplateApp {
 
         self.check_input(ctx);
     }
-
 }
