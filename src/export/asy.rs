@@ -52,7 +52,7 @@ real xmax = {y_max};")?;
             phi,
             ..
         } = particle;
-        let style = settings.particles.get(&id).unwrap();
+        let style = settings.particles.get(id).unwrap();
         let size = style.size;
         let shape = style.shape;
         let r = style.colour.r() as f32 / u8::MAX as f32;
@@ -128,7 +128,7 @@ scale(Linear,Log);")?;
             y,
             ..
         } = particle;
-        let style = settings.particles.get(&id).unwrap();
+        let style = settings.particles.get(id).unwrap();
         let size = style.size;
         let shape = style.shape;
         let r = style.colour.r() as f32 / u8::MAX as f32;

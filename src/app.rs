@@ -251,7 +251,7 @@ impl TemplateApp {
                 || ctx.load_texture("3D Plot", img.clone(), egui::TextureOptions::default())
             );
             texture.set(img, egui::TextureOptions::default());
-            let img = egui::load::SizedTexture::from_handle(&texture);
+            let img = egui::load::SizedTexture::from_handle(texture);
             ui.image(img)
         });
     }

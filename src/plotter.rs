@@ -279,11 +279,11 @@ impl Plotter {
         let mut response = None;
         let max_logpt = event.out.iter()
             .map(|p| p.pt.log10())
-            .min_by(|a, b| b.partial_cmp(&a).unwrap())
+            .min_by(|a, b| b.partial_cmp(a).unwrap())
             .unwrap_or_default();
         let min_logpt = event.out.iter()
             .map(|p| p.pt.log10())
-            .min_by(|a, b| a.partial_cmp(&b).unwrap())
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or_default();
         let min_logpt = clamp_max(min_logpt, max_logpt - 1.0);
         let range = max_logpt - min_logpt;

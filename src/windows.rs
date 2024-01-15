@@ -59,7 +59,7 @@ impl YLogPtWin {
                     event,
                     jets,
                 )
-            }).map(|e| e.inner.flatten()).flatten()
+            }).and_then(|e| e.inner.flatten())
 
     }
 }
@@ -97,9 +97,9 @@ impl YPhiWin {
                 plotter.plot_y_phi(
                     ui,
                     event,
-                    &jets,
+                    jets,
                 )
-            }).map(|e| e.inner.flatten()).flatten()
+            }).and_then(|e| e.inner.flatten())
     }
 }
 
