@@ -386,7 +386,7 @@ impl Plotter {
             let golden_ratio: f64 = (1. + f64::sqrt(5.)) / 2.;
             let l: f64 = golden_ratio * R;
             let mut pts = Vec::new();
-            const NUM_PETALS: usize = 8;
+            const NUM_PETALS: usize = 12;
             // hack to avoid overlapping grid lines
             const DELTA_PHI: f64 = 2.*PI / 11.;
             const LIGHT_BLUE: RGBColor = RGBColor(128, 128, 255);
