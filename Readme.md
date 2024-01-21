@@ -1,5 +1,7 @@
 # evil
 
+![evil picture of scattering event](assets/screenshot.png)
+
 A program for visualising simulated scattering events.
 
 ## Getting started
