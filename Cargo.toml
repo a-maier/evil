@@ -30,6 +30,7 @@ event-file-reader = { version = "0.3", features = ["bzip2", "lz4_flex"] }
 particle_id = {version = "0.5", features = ["serde"] }
 avery = "0.6"
 egui_file = "0.14"
+nalgebra = { version = "0.32", features = ["serde", "serde-serialize"] }
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

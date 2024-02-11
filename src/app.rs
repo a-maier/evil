@@ -2,11 +2,12 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::spawn;
 
 use egui::{
-    Context, DragValue, KeyboardShortcut, Modifiers, Vec2, ViewportCommand,
+    Context, DragValue, KeyboardShortcut, Modifiers, Vec2, ViewportCommand, Image, Sense,
 };
 use event_file_reader::EventFileReader as Reader;
 use jetty::PseudoJet;
 use log::{debug, error, trace};
+use nalgebra::{Rotation3, Vector3, Unit};
 
 const BYTES_PER_RGB_PIXEL: usize = 3;
 const BYTES_PER_RGBA_PIXEL: usize = 4;
@@ -275,7 +276,21 @@ impl TemplateApp {
             });
             texture.set(img, egui::TextureOptions::default());
             let img = egui::load::SizedTexture::from_handle(texture);
-            ui.image(img)
+            let img = Image::from_texture(img)
+                .sense(Sense::click_and_drag());
+            let response = ui.add(img);
+            if response.double_clicked() {
+                self.plotter.settings_3d.rotation = Rotation3::identity();
+            } else if response.dragged() {
+                let drag = response.drag_delta();
+                let dist = 0.01 * drag.length() as f64;
+                let axis = drag.rot90();
+                let axis: Vector3<_> = [0., axis[1] as f64, axis[0] as f64].into();
+                let axis = Unit::new_normalize(axis);
+                let mut rot = Rotation3::from_axis_angle(&axis, dist);
+                rot *= self.plotter.settings_3d.rotation;
+                self.plotter.settings_3d.rotation = rot;
+            }
         });
     }
 

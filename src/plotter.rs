@@ -11,6 +11,7 @@ use egui::{Stroke, Ui};
 use egui_plot::{Legend, Plot, PlotPoints, Points, Polygon};
 use jetty::PseudoJet;
 use log::debug;
+use nalgebra::{Rotation3, Point3};
 use num_traits::clamp_max;
 use num_traits::float::Float;
 use particle_id::ParticleID;
@@ -193,6 +194,8 @@ pub struct Projection {
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
 pub struct Settings3D {
     pub projection: Projection,
+    // TODO: might be better to merge this into projection
+    pub rotation: Rotation3<f64>,
 }
 
 impl Default for Settings3D {
@@ -203,6 +206,7 @@ impl Default for Settings3D {
                 yaw: 1.0,
                 scale: 1.0,
             },
+            rotation: Rotation3::identity(),
         }
     }
 }
@@ -414,41 +418,52 @@ impl Plotter {
             for t in 0..=NUM_PETALS {
                 let phi =
                     2. * PI * (t as f64) / (NUM_PETALS as f64) + DELTA_PHI;
-                pts.push((R * phi.cos(), R * phi.sin(), 0.));
+                let pt = Point3::from([R * phi.cos(), R * phi.sin(), 0.]);
+                pts.push(pt);
             }
             for z in [-l, l] {
                 chart.draw_series(pts.windows(2).map(|pts| {
-                    let mut pts = [pts[0], pts[1], (0., 0., 0.)];
+                    let mut pts = [pts[0], pts[1], [0., 0., 0.].into()];
                     for pt in &mut pts {
-                        pt.2 = z;
+                        pt[2] = z;
                     }
+                    let pts = pts.map(|pt| {
+                        let pt = self.settings_3d.rotation * pt;
+                        (pt[0], pt[1], pt[2])
+                    });
                     Polygon::new(pts, LIGHT_BLUE.mix(0.2))
                 }))?;
             }
             chart.draw_series(pts.windows(2).map(|pts| {
                 let mut pts = [pts[0], pts[1], pts[1], pts[0]];
-                pts[0].2 = -l;
-                pts[1].2 = -l;
-                pts[2].2 = l;
-                pts[3].2 = l;
+                pts[0][2] = -l;
+                pts[1][2] = -l;
+                pts[2][2] = l;
+                pts[3][2] = l;
+                let pts = pts.map(|pt| {
+                    let pt = self.settings_3d.rotation * pt;
+                    (pt[0], pt[1], pt[2])
+                });
                 Polygon::new(pts, LIGHT_BLUE.mix(0.1))
             }))?;
             for pt in &pts {
                 chart.draw_series(LineSeries::new(
                     (0..=1).map(|t| {
                         let mut pt = *pt;
-                        pt.2 = (2 * t - 1) as f64 * l;
-                        pt
+                        pt[2] = (2 * t - 1) as f64 * l;
+                        let pt = self.settings_3d.rotation * pt;
+                        (pt[0], pt[1], pt[2])
                     }),
                     LIGHT_BLUE.mix(0.2),
                 ))?;
             }
 
             for out in &event.out {
-                let mut coord = [out.p[1], out.p[2], out.p[3]];
-                for c in &mut coord {
+                let mut coord = Point3::from([out.p[1], out.p[2], out.p[3]]);
+                for c in coord.iter_mut() {
                     *c = 2. / PI * c.atan()
                 }
+                coord = self.settings_3d.rotation * coord;
 
                 chart.draw_series(LineSeries::new(
                     (0..=1).map(|t| {
