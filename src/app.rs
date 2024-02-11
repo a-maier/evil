@@ -7,8 +7,9 @@ use egui::{
 use event_file_reader::EventFileReader as Reader;
 use jetty::PseudoJet;
 use log::{debug, error, trace};
-use resvg::tiny_skia::PixmapMut;
-use usvg::TreeParsing;
+
+const BYTES_PER_RGB_PIXEL: usize = 3;
+const BYTES_PER_RGBA_PIXEL: usize = 4;
 
 use crate::clustering::{cluster, ClusterSettings};
 use crate::event::Event;
@@ -255,21 +256,14 @@ impl TemplateApp {
             ui.weak(&self.msg);
             let Vec2 { x, y } = ui.available_size();
             let [width, height] = [x as usize, y as usize];
-            let mut img = String::new();
+            let mut img = vec![0u8; width * height * BYTES_PER_RGBA_PIXEL];
             self.plotter
                 .plot_3d(event, &self.jets, &mut img, [width, height])
                 .unwrap();
-            let tree = usvg::Tree::from_str(&img, &Default::default()).unwrap();
-            let tree = resvg::Tree::from_usvg(&tree);
-            let mut data =
-                vec![0u8; width * height * resvg::tiny_skia::BYTES_PER_PIXEL];
-            let mut img =
-                PixmapMut::from_bytes(&mut data, width as u32, height as u32)
-                    .unwrap();
-            tree.render(Default::default(), &mut img);
+            rgb_to_rgba(&mut img);
             let img = egui::ColorImage::from_rgba_premultiplied(
                 [width, height],
-                img.data_mut(),
+                &img,
             );
             let img = egui::ImageData::from(img);
             let texture = self.plot_3d.get_or_insert_with(|| {
@@ -311,6 +305,21 @@ impl TemplateApp {
                 }
             };
         })
+    }
+}
+
+fn rgb_to_rgba(img: &mut [u8]) {
+    // insert 0 alpha values
+    // start at the end of `img` so we can safely do internal copies
+    debug_assert_eq!(img.len() % BYTES_PER_RGBA_PIXEL, 0);
+    let npixels = img.len() / BYTES_PER_RGBA_PIXEL;
+    for pixel in (0..npixels).rev() {
+        let dest_pos = pixel * BYTES_PER_RGBA_PIXEL;
+        let src_start = pixel * BYTES_PER_RGB_PIXEL;
+        let src_end = src_start + BYTES_PER_RGB_PIXEL;
+        img.copy_within(src_start..src_end, dest_pos);
+        assert_eq!(BYTES_PER_RGB_PIXEL + 1, BYTES_PER_RGBA_PIXEL);
+        img[dest_pos + BYTES_PER_RGB_PIXEL] = 0;
     }
 }
 

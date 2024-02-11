@@ -377,13 +377,13 @@ impl Plotter {
         &mut self,
         event: &Event,
         _jets: &[PseudoJet],
-        img: &mut String,
+        img: &mut Vec<u8>,
         size: [usize; 2],
     ) -> Result<()> {
         use plotters::prelude::*;
         let [width, height] = size;
         let backend =
-            SVGBackend::with_string(img, (width as u32, height as u32))
+            BitMapBackend::with_buffer(img, (width as u32, height as u32))
                 .into_drawing_area();
         // root.fill(&to_plotters_col(self.colour.background))?;
         // let root = root.margin(10, 10, 10, 10);
